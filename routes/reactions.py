@@ -1,27 +1,29 @@
 from typing import List
-
-from fastapi import APIRouter, Body, HTTPException, status, Depends, Request
+import datetime
+from beanie import PydanticObjectId
+from database.connection import Database
+from fastapi import APIRouter, HTTPException, status, Depends
 from models.base_types import reaction, update_reaction
-from database.connection import get_session
+from auth.authenticate import authenticate
 
 reactions_router = APIRouter(
-    tags=["Events"]
+    tags=["Reactions"]
 )
 
-reactions = []
+reactions = Database(reaction)
 
 
 
 @reactions_router.get("/", response_model=List[reaction])
-async def retrieve_all_reactions(session=Depends(get_session)) -> List[reaction]:
-    statement = select(reaction)
-    events = session.exec(statement).all()
+async def retrieve_all_reactions() -> List[reaction]:
+    events = await reactions.get_all()
     return events
 
-@reactions_router.get("/{id}", response_model=List[reaction])
-async def retrieve_reaction(id: str, session=Depends(get_session)) -> List[reaction]:
 
-    event = session.get(reaction, id)
+@reactions_router.get("/{id}", response_model=List[reaction])
+async def retrieve_reaction(id: str) -> List[reaction]:
+
+    event = await reactions.get(id)
     if event:
         return event
     raise HTTPException(
@@ -31,22 +33,18 @@ async def retrieve_reaction(id: str, session=Depends(get_session)) -> List[react
 
 
 @reactions_router.post("/new")
-async def create_event(new_reaction: reaction,
-            session=Depends(get_session)) -> dict:
-    session.add(new_reaction)
-    session.commit()
-    session.refresh(new_reaction)
+async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
+    new_reaction.changed_at = str(datetime.datetime.now())
+    await reactions.save(new_reaction)
     return {
         "message": "Reaction added successfully"
     }
 
 
-@reactions_router.delete("/delete/{num}")
-async def delete_event(num: int, session=Depends(get_session)) -> dict:
-    event = session.get(reaction, num)
+@reactions_router.delete("/{num}")
+async def delete_reaction(num: PydanticObjectId, user: str = Depends(authenticate)) -> dict:
+    event = await reactions.delete(num)
     if event:
-        session.delete(event)
-        session.commit()
         return {
             "message": "Reaction deleted successfully"
         }
@@ -57,17 +55,10 @@ async def delete_event(num: int, session=Depends(get_session)) -> dict:
 
 
 
-@reactions_router.put("/edit/{num}", response_model=reaction)
-async def update_event(num: int, new_data: update_reaction,
-                        session=Depends(get_session)) -> reaction:
-    event = session.get(reaction, num)
+@reactions_router.put("/{num}", response_model=reaction)
+async def update_reaction(num: PydanticObjectId, new_data: update_reaction, user: str = Depends(authenticate)) -> reaction:
+    event = await reactions.update(num, new_data)
     if event:
-        event_data = new_data.dict(exclude_unset=True)
-        for key, value in event_data.items():
-            setattr(event, key, value)
-        session.add(event)
-        session.commit()
-        session.refresh(event)
         return event
     raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

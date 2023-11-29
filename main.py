@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
-from database.connection import conn
-
+from database.connection import Settings
 from routes.users import user_router
 from routes.reactions import reactions_router
 
 import uvicorn
 
 app = FastAPI()
+
+settings = Settings()
 
 # Register routes
 
@@ -18,12 +19,12 @@ app.include_router(reactions_router, prefix="/reaction")
 
 
 @app.on_event("startup")
-def on_startup():
-    conn()
+async def init_db():
+    await settings.initialize_database()
 
 @app.get("/")
 async def home():
     return RedirectResponse(url="/reaction/")
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="127.0.0.1", port=80, reload=True)
+    uvicorn.run("main:app", host="localhost", port=80, reload=True)
