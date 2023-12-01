@@ -28,7 +28,7 @@ class Database:
         return
 
     async def get(self, id: str) -> Any:
-        doc = await self.model.find(self.model.id == id).to_list()
+        doc = await self.model.get(id)
         if doc:
             return doc
         return False
@@ -53,8 +53,8 @@ class Database:
         return doc
 
     async def delete(self, id: PydanticObjectId) -> bool:
-        doc = await self.get()
+        doc = await self.get(id)
         if not doc:
             return False
         await doc.delete()
-        return Trueй
+        return True

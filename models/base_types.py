@@ -1,20 +1,29 @@
 from pydantic import BaseModel
+import uuid
 from typing import List, Optional
-from sqlmodel import JSON, SQLModel, Field, Column
 from fastapi import APIRouter
 from beanie import Document
+from pydantic import Field
+from beanie import PydanticObjectId
+
+
 
 
 class reaction(Document):
-    id: str
+#    def __init__(self, *args, **kwargs):
+#        super().__init__(*args, **kwargs)
+#        self.id = str(uuid.uuid4())
+
+    id: PydanticObjectId = Field(default_factory=PydanticObjectId, alias="_id")
+    ztf_id: str
     tag: str
-    user: str
+    user: Optional[str] = None
     changed_at: Optional[str] = None
     
     class Config:
         scheme_extra = {
             "example": {
-            'id': 'ZTF18aazmwmw',
+            'ztf_id': 'ZTF18aazmwmw',
             'tag': 'Anomaly',
             'user': 'Anastasia',
             'changed_at': '22.11.2023 17:50'

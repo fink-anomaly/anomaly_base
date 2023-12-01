@@ -23,7 +23,7 @@ async def retrieve_all_reactions() -> List[reaction]:
 @reactions_router.get("/{id}", response_model=List[reaction])
 async def retrieve_reaction(id: str) -> List[reaction]:
 
-    event = await reactions.get(id)
+    event = await reactions.find(reaction.ztf_id == id)
     if event:
         return event
     raise HTTPException(
@@ -35,6 +35,7 @@ async def retrieve_reaction(id: str) -> List[reaction]:
 @reactions_router.post("/new")
 async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
     new_reaction.changed_at = str(datetime.datetime.now())
+    new_reaction.user = user
     await reactions.save(new_reaction)
     return {
         "message": "Reaction added successfully"
