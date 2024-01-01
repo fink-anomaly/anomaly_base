@@ -34,7 +34,8 @@ async def retrieve_reaction(id: str) -> List[reaction]:
 
 @reactions_router.post("/new")
 async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
-    new_reaction.changed_at = str(datetime.datetime.now())
+    if not 'changed_at' in new_reaction: 
+        new_reaction.changed_at = str(datetime.datetime.now())
     new_reaction.user = user
     await reactions.save(new_reaction)
     return {
