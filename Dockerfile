@@ -4,10 +4,18 @@ WORKDIR /app
 
 ADD requirements.txt /app/requirements.txt
 
-RUN pip install --upgrade pip && pip install -r /app/requirements.txt
+RUN pip install --upgrade pip
 
-EXPOSE 8080
+RUN pip install -r /app/requirements.txt
+
+RUN pip uninstall bson pymongo -y
+
+RUN pip install pymongo==4.6.0
+
+EXPOSE 24000
 
 COPY ./ /app
+
+RUN pip config --user set global.progress_bar off
 
 CMD ["python", "main.py"]
