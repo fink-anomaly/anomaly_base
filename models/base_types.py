@@ -7,12 +7,7 @@ from pydantic import Field
 from beanie import PydanticObjectId
 
 
-
-
 class reaction(Document):
-#    def __init__(self, *args, **kwargs):
-#        super().__init__(*args, **kwargs)
-#        self.id = str(uuid.uuid4())
 
     id: PydanticObjectId = Field(default_factory=PydanticObjectId, alias="_id")
     ztf_id: str

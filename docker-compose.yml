@@ -5,7 +5,7 @@ services:
     build: .
     image: anomaly_base:latest
     ports:
-      - "8080:8080"
+      - "24000:24000"
     env_file:
       - .env
     
