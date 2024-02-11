@@ -34,8 +34,18 @@ async def retrieve_reaction(id: str) -> List[reaction]:
 
 @reactions_router.post("/new")
 async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
+    
     if not 'changed_at' in new_reaction: 
         new_reaction.changed_at = str(datetime.datetime.now())
+    else:
+        event = await reactions.find({
+        "ztf_id": new_reaction.ztf_id,
+        "changed_at": new_reaction.changed_at
+        })
+        if event:
+            return {
+            "message": "There is the same reaction."
+            }
     new_reaction.user = user
     await reactions.save(new_reaction)
     return {
@@ -55,6 +65,18 @@ async def delete_reaction(num: PydanticObjectId, user: str = Depends(authenticat
             detail="Reaction with supplied ID does not exist"
     )
 
+
+@reactions_router.delete("/deleteall/{name}")
+async def delete_reaction(name: str, user: str = Depends(authenticate)) -> dict:
+    event = await reactions.delete_many({"user": name})
+    if event:
+        return {
+            "message": "Reactions deleted successfully"
+        }
+    raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reaction with supplied names does not exist"
+    )
 
 
 @reactions_router.put("/{num}", response_model=reaction)
