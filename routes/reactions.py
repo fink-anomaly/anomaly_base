@@ -37,7 +37,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
     
     if not 'changed_at' in new_reaction: 
         new_reaction.changed_at = str(datetime.datetime.now())
-    event = await reactions.find_(reaction.ztf_id == new_reaction.ztf_id)
+    event = await reactions.find(reaction.ztf_id == new_reaction.ztf_id)
     if event:
         event['tag'] = new_reaction.tag
         return {
