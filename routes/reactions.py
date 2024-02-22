@@ -1,6 +1,7 @@
 from typing import List
 import datetime
 from beanie import PydanticObjectId
+from beanie.operators import Set
 from database.connection import Database
 from fastapi import APIRouter, HTTPException, status, Depends
 from models.base_types import reaction, update_reaction
@@ -39,7 +40,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
         new_reaction.changed_at = str(datetime.datetime.now())
     event = await reactions.find_with_ztfid(new_reaction.ztf_id)
     if event:
-        event['tag'] = new_reaction.tag
+        event.update(SET({reactions.model.ztf_id: new_reaction.tag}))
         return {
         "message": "Updated!"
         }
