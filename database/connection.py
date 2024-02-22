@@ -58,3 +58,10 @@ class Database:
             return False
         await doc.delete()
         return True
+    
+    async def delete_all_with_user(self, user: str) -> bool:
+        search_result = await self.model.find(self.model.user == user)
+        if not search_result:
+            return False
+        else:
+            return True

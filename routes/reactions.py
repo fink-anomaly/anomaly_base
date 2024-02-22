@@ -66,12 +66,12 @@ async def delete_reaction(num: PydanticObjectId, user: str = Depends(authenticat
     )
 
 
-@reactions_router.delete("/deleteall/{name}")
-async def delete_reaction(name: str, user: str = Depends(authenticate)) -> dict:
+@reactions_router.delete("/delete_user/{name}")
+async def delete_reaction_from_user(name: str, user: str = Depends(authenticate)) -> dict:
     """
-    Test_docstring
+    
     """
-    event = await reactions.delete({"user": name})
+    event = await reactions.delete_all_with_user(name)
     if event:
         return {
             "message": "Reactions deleted successfully"
