@@ -37,15 +37,14 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
     
     if not 'changed_at' in new_reaction: 
         new_reaction.changed_at = str(datetime.datetime.now())
-    else:
-        event = await reactions.find_one({
-        "ztf_id": new_reaction.ztf_id
-        })
-        if event:
-            event['tag'] = new_reaction.tag
-            return {
-            "message": "Updated!"
-            }
+    event = await reactions.find_one({
+    "ztf_id": new_reaction.ztf_id
+    })
+    if event:
+        event['tag'] = new_reaction.tag
+        return {
+        "message": "Updated!"
+        }
     new_reaction.user = user
     await reactions.save(new_reaction)
     return {
