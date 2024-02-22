@@ -65,3 +65,9 @@ class Database:
             return False
         await search_result.delete()
         return True
+        
+    async def find_with_ztfid(self, ztf_id: str) -> Any:
+        search_result = self.model.find_one(self.model.ztf_id == ztf_id)
+        if search_result:
+            return search_result
+        return False
