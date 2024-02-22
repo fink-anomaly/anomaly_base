@@ -71,7 +71,7 @@ async def delete_reaction(name: str, user: str = Depends(authenticate)) -> dict:
     """
     Test_docstring
     """
-    event = await reactions.remove({"user": name})
+    event = await reactions.delete({"user": name})
     if event:
         return {
             "message": "Reactions deleted successfully"
