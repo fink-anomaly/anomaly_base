@@ -63,6 +63,5 @@ class Database:
         search_result = self.model.find(self.model.user == user)
         if not search_result:
             return False
-        else:
-            return True
         await search_result.delete()
+        return True
