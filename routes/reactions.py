@@ -40,7 +40,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
         new_reaction.changed_at = str(datetime.datetime.now())
     event = await reactions.find_with_ztfid(new_reaction.ztf_id)
     if event:
-        event.update(Set({reactions.model.ztf_id: new_reaction.tag}))
+        event.update(Set({reactions.model.tag: new_reaction.tag}))
         return {
         "message": "Updated!"
         }
