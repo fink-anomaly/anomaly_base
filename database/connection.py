@@ -65,7 +65,11 @@ class Database:
             return False
         await search_result.delete()
         return True
-        
+
+    async def find_with_user(self, name: str) -> List:
+        search_result = self.model.find_many(self.model.user == name) if name != 'tg_data' else self.model.find_all()
+        return search_result
+
     async def find_with_ztfid(self, ztf_id: str) -> Any:
         search_result = self.model.find_one(self.model.ztf_id == ztf_id)
         if await search_result.count():

@@ -52,3 +52,12 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid details passed."
     )
+
+
+async def authenticate_user(username: str, plain_password: str) -> User:
+    user = await User.find_one(User.name == username)
+    if not user:
+        return False
+    if not hash_password.verify_hash(plain_password, user.hashed_password):
+        return False
+    return user

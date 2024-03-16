@@ -1,0 +1,50 @@
+<h1>Private Page 🕵️</h1>
+
+<p>Hello {{ user.name }}!
+You have {{count}} reactions now</p>
+
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>ztf_id</th>
+      <th>tag</th>
+      <th>user</th>
+      <th>changed_at</th>
+        <th></th>
+    </tr>
+  </thead>
+  <tbody>
+
+    {% for row in table %}
+        <tr>
+            <td>{{row.ztf_id}}</td>
+            <td>{{row.tag}}</td>
+            <td>{{row.user}}</td>
+            <td>{{row.changed_at}}</td>
+            <td>        <button id="{{row.id}}">Delete</button>
+        <script>
+            const token_ = 'Bearer ' + '{{token}}';
+            document.getElementById("{{row.id}}").addEventListener("click", async function() {
+                const response = await fetch('/reaction/{{row.id}}', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token_,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    location.reload();
+                }
+            });
+        </script></td>
+        </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+
+
+
+<hr>
+
+{% include '_site_map.html' %}
