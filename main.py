@@ -34,7 +34,6 @@ app.include_router(reactions_router, prefix="/reaction")
 
 @app.post("/webhook")
 async def telegram_webhook(update: Update):
-    # Обработка обновления от Telegram
     update_id = update.update_id
     message = update.message
     print(message)
@@ -148,5 +147,7 @@ async def index(request: Request, user: User = Depends(get_current_user_from_tok
     return templates.TemplateResponse("private.html", context)
 
 if __name__ == '__main__':
-    #uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True)
-    uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True,
+                ssl_keyfile="./key.pem",
+                ssl_certfile="./cert.pem")
+    #uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)
