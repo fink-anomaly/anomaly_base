@@ -13,6 +13,7 @@ from models.base_types import User
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from pydantic import BaseModel
+import aiohttp
 
 
 class Update(BaseModel):
@@ -32,13 +33,12 @@ app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
 
 
-@app.post("/webhook")
-async def telegram_webhook(update: Update):
-    update_id = update.update_id
-    message = update.message
-    print(message)
-    return {"status": "success"}
-
+async def get_bot_updates():
+    url = f'https://api.telegram.org/bot{settings.TG_TOKEN}/getUpdates'
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            updates = await response.json()
+            return updates["result"] if 'result' in updates else None
 
 async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)
@@ -49,6 +49,8 @@ async def get_reactions_table(name) -> str:
 @app.on_event("startup")
 async def init_db():
     await settings.initialize_database()
+    bot_info = await get_bot_updates()
+    print(bot_info)
 
 @app.get("/all_reactions")
 async def all_reactions():
@@ -146,8 +148,12 @@ async def index(request: Request, user: User = Depends(get_current_user_from_tok
     #TODO: нужно извлечь токен из request и вспомнить, как вставить его в запрос (BEARER-авторизация )
     return templates.TemplateResponse("private.html", context)
 
+
+
+
+
+
+
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True,
-                ssl_keyfile="./key.pem",
-                ssl_certfile="./cert.pem")
+    uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True)
     #uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)

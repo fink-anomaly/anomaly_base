@@ -48,6 +48,7 @@ class update_reaction(BaseModel):
 class User(Document):
     name: str
     password: str
+    tg_id: Optional[str]
     
     class Settings:
         name = "users"
@@ -56,7 +57,8 @@ class User(Document):
         scheme_extra = {
             "example": {
             'name': 'Anastasia',
-            'password': '0000'
+            'password': '0000',
+            'tg_id': '####'
             }
         }
         
