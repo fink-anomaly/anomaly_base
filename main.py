@@ -49,8 +49,8 @@ async def get_reactions_table(name) -> str:
 @app.on_event("startup")
 async def init_db():
     await settings.initialize_database()
-    bot_info = await get_bot_updates()
-    print(bot_info)
+    #bot_info = await get_bot_updates()
+    #print(bot_info)
 
 @app.get("/all_reactions")
 async def all_reactions():
