@@ -26,7 +26,7 @@ class reaction(Document):
         }
     
     class Settings:
-        name = "events"
+        name = "reactions_"
 
 
 class update_reaction(BaseModel):
@@ -48,7 +48,7 @@ class update_reaction(BaseModel):
 class User(Document):
     name: str
     password: str
-    tg: Optional[str]
+    tg_id: Optional[str]
     
     class Settings:
         name = "users"
@@ -58,7 +58,7 @@ class User(Document):
             "example": {
             'name': 'Anastasia',
             'password': '0000',
-            'tg': '5365634'
+            'tg_id': '5365634'
             }
         }
         

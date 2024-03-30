@@ -33,12 +33,12 @@ app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
 
 
-async def get_bot_updates():
-    url = f'https://api.telegram.org/bot{settings.TG_TOKEN}/getUpdates'
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            updates = await response.json()
-            return updates["result"] if 'result' in updates else None
+# async def get_bot_updates():
+#     url = f'https://api.telegram.org/bot{settings.TG_TOKEN}/getUpdates'
+#     async with aiohttp.ClientSession() as session:
+#         async with session.get(url) as response:
+#             updates = await response.json()
+#             return updates["result"] if 'result' in updates else None
 
 async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)

@@ -15,7 +15,7 @@ settings = Settings()
 def create_access_token(user: str):
     payload = {
         "user": user,
-        "expires": time.time() + 3600*10**100000
+        "expires": time.time() + 3600*10
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
