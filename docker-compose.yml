@@ -13,22 +13,12 @@ services:
       - database
   database:
     image: mongo:latest
-    restart: always
+    restart: unless-stopped
     ports:
       - 27017:27017
     volumes:
-      - data:/data/db
+      - ./data:/data/db
     environment:
       MONGODB_INITDB_ROOT_PASSWORD: root
       MONGODB_INITDB_ROOT_USERNAME: knispel
-  tg_bot:
-    image: anomaly_data_bot:latest
-    ports:
-      - "24000:24000"
-    env_file:
-      - .env
-    depends_on:
-      - database
 
-volumes:
-    data:
