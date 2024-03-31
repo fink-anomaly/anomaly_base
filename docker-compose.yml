@@ -17,8 +17,9 @@ services:
     ports:
       - 27017:27017
     volumes:
-      - ./data:/data/db
-    environment:
-      MONGODB_INITDB_ROOT_PASSWORD: root
-      MONGODB_INITDB_ROOT_USERNAME: knispel
+      - data:/data/db
+    env_file:
+      - .env
+volumes:
+  data:
 
