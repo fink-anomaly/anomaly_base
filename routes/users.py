@@ -53,6 +53,32 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
         detail="Invalid details passed."
     )
 
+@user_router.post("/connect")
+async def connect_with_tg(user: User) -> dict:
+    user_exist = await users.find_one(User.name == user.name)
+
+    if user_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with name not found."
+        )
+    if not hash_password.verify_hash(user.password, user_exist.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid details passed."
+        )
+
+    await user_exist.update(
+        {"$set":
+            {
+                'tg_id': user.tg_id
+            }
+        }
+    )
+    return {
+        "message": "User connected successfully"
+    }
+
 
 async def authenticate_user(username: str, plain_password: str) -> User:
     user = await User.find_one(User.name == username)
