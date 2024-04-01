@@ -55,7 +55,7 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
 
 @user_router.post("/connect")
 async def connect_with_tg(user: User) -> dict:
-    user_exist = await users.find_one(User.name == user.name)
+    user_exist = await User.find_one(User.name == user.name)
 
     if user_exist:
         raise HTTPException(
