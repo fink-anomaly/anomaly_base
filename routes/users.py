@@ -57,7 +57,7 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
 async def connect_with_tg(user: User) -> dict:
     user_exist = await User.find_one(User.name == user.name)
 
-    if user_exist:
+    if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User with name not found."
