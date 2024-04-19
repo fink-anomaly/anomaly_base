@@ -37,7 +37,7 @@ async def get_tgid_by_postfix(postfix: str, response_model=str) -> str:
 
     if user_exist:
         raise HTTPException(
-            status_code=status.HTTP_404_CONFLICT,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
