@@ -31,7 +31,7 @@ async def sign_user_up(user: User) -> dict:
     }
 
 @user_router.get("/{postfix}")
-async def get_tgid_by_postfix(postfix: str):
+async def get_tgid_by_postfix(postfix):
 
     user_exist = await User.find_one(User.name == postfix)
 
