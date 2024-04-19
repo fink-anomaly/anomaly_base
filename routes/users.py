@@ -35,7 +35,7 @@ async def get_tgid_by_postfix(postfix: str, response_model=str) -> str:
 
     user_exist = await User.find_one(User.name == postfix)
 
-    if user_exist:
+    if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
