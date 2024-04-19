@@ -30,6 +30,18 @@ async def sign_user_up(user: User) -> dict:
         "message": "User created successfully"
     }
 
+@user_router.get("/{postfix}")
+async def get_tgid_by_postfix(postfix: str, response_model=str) -> str:
+
+    user_exist = await User.find_one(User.name == postfix)
+
+    if user_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_CONFLICT,
+            detail="User not found"
+        )
+
+    return user_exist.tg_id
 
 @user_router.post("/signin", response_model=TokenResponse)
 async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
@@ -78,6 +90,7 @@ async def connect_with_tg(user: User) -> dict:
     return {
         "message": "User connected successfully"
     }
+
 
 
 async def authenticate_user(username: str, plain_password: str) -> User:
