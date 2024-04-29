@@ -13,6 +13,7 @@ from models.base_types import User
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 import aiohttp
 
 
@@ -23,6 +24,7 @@ class Update(BaseModel):
 import uvicorn
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 settings = Settings()
 hash_password = HashPassword()
@@ -76,24 +78,14 @@ async def login_for_access_token(
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    try:
-        user = await get_current_user_from_cookie(request)
-    except:
-        user = None
-    context = {
-        "user": user,
-        "request": request,
-    }
-    return templates.TemplateResponse("index.html", context)
+
 
 @app.get("/auth/login", response_class=HTMLResponse)
 async def login_get(request: Request):
     context = {
         "request": request,
     }
-    return templates.TemplateResponse("login.html", context)
+    return templates.TemplateResponse("index.html", context)
 
 
 class LoginForm:
@@ -118,6 +110,8 @@ class LoginForm:
         return False
 
 
+
+
 @app.post("/auth/login", response_class=HTMLResponse)
 async def login_post(request: Request):
     form = LoginForm(request)
@@ -132,28 +126,30 @@ async def login_post(request: Request):
         except HTTPException:
             form.__dict__.update(msg="")
             form.__dict__.get("errors").append("Incorrect Login or Password")
-            return templates.TemplateResponse("login.html", form.__dict__)
-    return templates.TemplateResponse("login.html", form.__dict__)
+            return templates.TemplateResponse("index.html", form.__dict__)
+    return templates.TemplateResponse("index.html", form.__dict__)
 
-@app.get("/private", response_class=HTMLResponse)
-async def index(request: Request, user: User = Depends(get_current_user_from_token)):
-    data = await get_reactions_table(user.name)
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    try:
+        user = await get_current_user_from_cookie(request)
+        data = await get_reactions_table(user.name)
+    except:
+        user = None
+        data = None
     context = {
         "user": user,
         "request": request,
         "table": data,
-        "token": request.cookies.get('access_token'),
-        "count": len(data)
+        "token": request.cookies.get('access_token') if not user is None else '',
+        "count": len(data) if not data is None else 0
     }
-    #TODO: нужно извлечь токен из request и вспомнить, как вставить его в запрос (BEARER-авторизация )
-    return templates.TemplateResponse("private.html", context)
-
-
-
+    return templates.TemplateResponse("index.html", context)
 
 
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True)
-    #uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)
+    #uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)
