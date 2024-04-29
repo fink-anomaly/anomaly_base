@@ -55,6 +55,11 @@ body {
 	-webkit-text-size-adjust: none;
 }
 
+.scrollable {
+    overflow-x: auto; /* Включает горизонтальную прокрутку, если содержимое выходит за границы */
+    width: 100%; /* Задает ширину контейнера равной ширине родительского элемента */
+}
+
 mark {
 	background-color: transparent;
 	color: inherit;
