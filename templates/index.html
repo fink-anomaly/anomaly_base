@@ -1,11 +1,22 @@
 <!DOCTYPE HTML>
 <html>
 	<head>
-		<title>Astral by HTML5 UP</title>
+		<title>Anomaly base</title>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 		<link rel="stylesheet" href="{{ url_for('static', path='/assets/css/main.css') }}"/>
 		<noscript><link rel="stylesheet" href="{{ url_for('static', path='/assets/css/noscript.css') }}"/></noscript>
+		<style>
+		table {
+		  width: 100%;
+		  border-collapse: collapse;
+		}
+		th, td {
+		  border: 1px solid black;
+		  padding: 8px;
+		  text-align: left;
+		}
+	  </style>
 	</head>
 	<body class="is-preload">
 
@@ -59,7 +70,7 @@
 										<h2>Your anomalies 🕵️</h2>
 									</header>
 									<p>Hello {{ user.name }}! You have {{count}} reactions now</p>
-									<table border="1" class="dataframe">
+									<table class="dataframe">
 									  <thead>
 										<tr style="text-align: right;">
 										  <th>ztf_id</th>
