@@ -7,16 +7,17 @@
 		<link rel="stylesheet" href="{{ url_for('static', path='/assets/css/main.css') }}"/>
 		<noscript><link rel="stylesheet" href="{{ url_for('static', path='/assets/css/noscript.css') }}"/></noscript>
 		<style>
-		table {
-		  width: 100%;
-		  border-collapse: collapse;
-		}
-		th, td {
-		  border: 1px solid black;
-		  padding: 8px;
-		  text-align: left;
-		}
-	  </style>
+			table {
+			  width: 100%;
+			  border-collapse: collapse;
+			}
+			th, td {
+			  border: 1px solid black;
+			  padding: 8px;
+			  text-align: left;
+			}
+	  	</style>
+
 	</head>
 	<body class="is-preload">
 
@@ -38,11 +39,14 @@
 									
 									{% if user %}
 										<header>
-											<h1>Hello!</h1>
-											<p>{{user.name}}</p>
+											<h1>Hello, {{user.name}}!</h1>
+											<p>click on the tab to the right to view anomalies</p>
 										</header>
 										<a href="#work" class="jumplink pic">
 											<span class="arrow icon solid fa-chevron-right"><span>Data</span></span>
+											<div class="container">
+												<img src="{{ url_for('static', path='/images/fink.jpg') }}"  alt="" style="max-width: 100%; max-height: 100%;"/>
+											</div>
 										</a>
 									{% else %}
 										<header>
@@ -69,7 +73,7 @@
 									<header>
 										<h2>Your anomalies 🕵️</h2>
 									</header>
-									<p>Hello {{ user.name }}! You have {{count}} reactions now</p>
+									<p>Hello, {{ user.name }}! You have {{count}} reactions now</p>
 									<div class="scrollable">
 										<table class="dataframe">
 										  <thead>
@@ -125,7 +129,6 @@
 
 			</div>
 
-		<!-- Scripts -->
 			<script src="{{ url_for('static', path='/assets/js/jquery.min.js') }}"></script>
 			<script src="{{ url_for('static', path='/assets/js/browser.min.js') }}"></script>
 			<script src="{{ url_for('static', path='/assets/js/breakpoints.min.js') }}"></script>
