@@ -18,6 +18,15 @@
 			}
 	  	</style>
 
+			<style>
+			  td {
+				border: 1px solid black; /* Добавляем границу ячейкам */
+				text-align: center; /* Центрирование содержимого ячейки по горизонтали */
+				vertical-align: middle; /* Центрирование содержимого ячейки по вертикали */
+				padding: 10px; /* Добавляем отступы внутри ячейки */
+			  }
+			</style>
+
 	</head>
 	<body class="is-preload">
 
@@ -50,7 +59,8 @@
 										</a>
 									{% else %}
 										<header>
-											<h1>Auth</h1>
+											<h1>Authorization</h1>
+											<p>enter your login and password in the form on the right</p>
 										</header>
 										{% for error in errors %}
 											<p style="color: red">{{ error }}</p>
@@ -63,6 +73,7 @@
 											<div class="col-12">
 												<input type="password" name="password" placeholder="password" value="{{ password }}" required>
 											</div>
+												<p> </p>
 											<input type="submit" value="Login">
 										</form>	
 									{% endif %}
@@ -71,7 +82,7 @@
 							<article id="work" class="panel">
 								{% if user %}
 									<header>
-										<h2>Your anomalies 🕵️</h2>
+										<h2>Your anomalies ️</h2>
 									</header>
 									<p>Hello, {{ user.name }}! You have {{count}} reactions now</p>
 									<div class="scrollable">
