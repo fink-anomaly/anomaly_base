@@ -18,14 +18,140 @@
 			}
 	  	</style>
 
-			<style>
-			  td {
-				border: 1px solid black; /* Добавляем границу ячейкам */
-				text-align: center; /* Центрирование содержимого ячейки по горизонтали */
-				vertical-align: middle; /* Центрирование содержимого ячейки по вертикали */
-				padding: 10px; /* Добавляем отступы внутри ячейки */
-			  }
-			</style>
+		<style>
+		  td {
+			border: 1px solid black; /* Добавляем границу ячейкам */
+			text-align: center; /* Центрирование содержимого ячейки по горизонтали */
+			vertical-align: middle; /* Центрирование содержимого ячейки по вертикали */
+			padding: 10px; /* Добавляем отступы внутри ячейки */
+		  }
+		</style>
+
+		<style>
+			.tile {
+				border: 1px solid #ccc;
+				padding: 10px;
+				margin: 10px;
+				display: inline-block;
+				vertical-align: top;
+				width: 500px;
+			}
+			.tile img {
+				width: 100%;
+				height: auto;
+				cursor: pointer;
+			}
+			.buttons {
+				display: flex;
+				justify-content: space-between;
+			}
+			.modal {
+            display: none; /* Скрыть по умолчанию */
+            position: fixed; /* Оставаться на месте */
+            z-index: 1; /* На вершине */
+            padding-top: 120px; /* Расположить в 120 от верхней части */
+            left: 0;
+            top: 0;
+            width: 100%; /* Полная ширина */
+            height: 100%; /* Полная высота */
+            overflow: auto; /* Включить прокрутку, если нужно */
+            background-color: rgb(0,0,0); /* Fallback цвет */
+            background-color: rgba(0,0,0,0.4); /* Чёрный с прозрачностью */
+			}
+			/* Модальное содержимое */
+			.modal-content {
+				margin: auto;
+				display: block;
+				width: 80%;
+				max-width: 700px;
+				transition: transform 0.25s ease; /* Плавный зум */
+			}
+			/* Стили для закрытия */
+			.close {
+				position: absolute;
+				top: 15px;
+				right: 35px;
+				color: #f1f1f1;
+				font-size: 40px;
+				font-weight: bold;
+				transition: 0.3s;
+			}
+			.close:hover,
+			.close:focus {
+				color: #bbb;
+				text-decoration: none;
+				cursor: pointer;
+			}
+			/* Стили для зумирования */
+			.zoom {
+				cursor: zoom-in;
+			}
+			.zoomed {
+				transform: scale(2); /* Увеличение в 2 раза */
+				cursor: zoom-out;
+			}
+		</style>
+		<script>
+			// Открытие модального окна
+			function openModal(imgSrc) {
+				const modal = document.getElementById("myModal");
+				const modalImg = document.getElementById("img01");
+				modal.style.display = "block";
+				modalImg.src = imgSrc;
+				modalImg.classList.remove("zoomed"); // Сброс зума при открытии нового изображения
+			}
+
+			// Закрытие модального окна
+			function closeModal(event) {
+				const modal = document.getElementById("myModal");
+				if (event.target === modal) {
+					modal.style.display = "none";
+				}
+			}
+
+			// Зумирование изображения в модальном окне
+			function toggleZoom(event) {
+				event.stopPropagation(); // Предотвращение закрытия модального окна при зумировании
+				const modalImg = document.getElementById("img01");
+				modalImg.classList.toggle("zoomed");
+			}
+
+			const token_ = 'Bearer ' + '{{token}}';
+
+			async function add_anomaly(ztfid, flag, tileid)
+			{
+				const response = await fetch('/reaction/new', {
+					method: 'POST',
+					headers: {
+						'Authorization': token_,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						'ztf_id': ztfid,
+						'tag': flag
+					})
+				});
+				if (response.ok) {
+					document.getElementById(`tile-${tileid}`).remove();
+				}
+			}
+
+			async function remove_tail(obj_id)
+			{
+				const response = await fetch(`/images/${obj_id}`, {
+					method: 'DELETE',
+					headers: {
+								'Authorization': token_,
+								'Content-Type': 'application/json'
+							}
+				});
+
+				if (response.ok) {
+					document.getElementById(`tile-${obj_id}`).remove();
+				}
+
+			}
+		</script>
 
 	</head>
 	<body class="is-preload">
@@ -38,6 +164,7 @@
 						<a href="#" class="icon solid fa-home"><span>Home</span></a>
 						{% if user %}
 							<a href="#work" class="icon solid fa-folder"><span>Anomalies</span></a>
+							<a href="#notifications" class="fa-brands fa-cloudflare"><span>Notifications</span></a>
 						{% endif %}
 					</nav>
 
@@ -128,6 +255,30 @@
 								{% endif %}
 							</article>
 
+						{% if user %}
+							<article id="notifications" class="panel">
+								<div id="tiles">
+									{% for tile in tiles %}
+										<div class="tile" id="tile-{{ tile.id }}">
+											<img src="{{ tile.curve }}" alt="Image 2" onclick="openModal('{{ tile.curve }}')">
+											<img src="{{ tile.cutout }}" alt="Image 1" onclick="openModal('{{ tile.cutout }}')">
+											<div>{{ tile.description | safe }}</div>
+											<div class="buttons">
+												<button onclick="add_anomaly('{{ tile.ztf_id }}', 'NOT ANOMALY', '{{ tile.id }}')">Not anomaly</button>
+												<button onclick="remove_tail('{{ tile.id }}')">Just remove</button>
+												<button onclick="add_anomaly('{{ tile.ztf_id }}', 'ANOMALY', '{{ tile.id }}')">Anomaly</button>
+											</div>
+										</div>
+									{% endfor %}
+								</div>
+
+								<div id="myModal" class="modal" onclick="closeModal(event)">
+									<span class="close" onclick="closeModal(event)">&times;</span>
+									<img class="modal-content zoom" id="img01" onclick="toggleZoom(event)">
+								</div>
+							</article>
+
+						{% endif %}
 
 					</div>
 

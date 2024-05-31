@@ -4,8 +4,11 @@ services:
   api:
     build: .
     image: anomaly_base:latest
+    restart: always
+    volumes:
+      - .certs:/certs
     ports:
-      - "24000:24000"
+      - "443:443"
     env_file:
       - .env
 
@@ -14,14 +17,12 @@ services:
   database:
     image: mongo:latest
     restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: LOGIN
-      MONGO_INITDB_ROOT_PASSWORD: PASSWD
-    ports:
-      - 27017:27017
     env_file:
-      - mongo_credentials.env
+      - .menv
+    ports:
+      - "127.0.0.1:27017:27017"
     volumes:
       - data:/data_md/db
+
 volumes:
   data:

@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
 from beanie import init_beanie, PydanticObjectId
-from models.base_types import reaction, User
+from models.base_types import reaction, User, ImageDocument
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseSettings, BaseModel
 
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     async def initialize_database(self):
         client = AsyncIOMotorClient(self.DATABASE_URL)
         await init_beanie(database=client.db_name,
-                          document_models=[reaction, User])
+                          document_models=[reaction, User, ImageDocument])
 
     class Config:
         env_file = ".env"
@@ -68,7 +68,7 @@ class Database:
         return True
 
     async def find_with_user(self, name: str) -> List:
-        search_result = self.model.find_many(self.model.user == name) if name != 'tg_data' else self.model.find_all()
+        search_result = self.model.find_many(self.model.user == name) if name != 'admin' else self.model.find_all()
         return search_result
 
     async def find_with_ztfid(self, ztf_id: str) -> Any:

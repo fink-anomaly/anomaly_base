@@ -12,7 +12,7 @@ RUN pip uninstall bson pymongo -y
 
 RUN pip install pymongo==4.6.0
 
-EXPOSE 24000
+EXPOSE 443
 
 COPY ./ /app
 

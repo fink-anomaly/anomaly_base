@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional
-
+import markdown
 from database.connection import Settings
 from routes.users import user_router
 from routes.reactions import reactions_router
@@ -14,7 +14,8 @@ from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
-import aiohttp
+from routes.upload import images
+from routes.upload import image_router
 
 
 class Update(BaseModel):
@@ -33,6 +34,7 @@ hash_password = HashPassword()
 
 app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
+app.include_router(image_router, prefix='/images')
 
 
 # async def get_bot_updates():
@@ -130,20 +132,37 @@ async def login_post(request: Request):
     return templates.TemplateResponse("index.html", form.__dict__)
 
 
+class attr_carrier:
+    def __init__(self):
+        pass
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     try:
         user = await get_current_user_from_cookie(request)
         data = await get_reactions_table(user.name)
+        tiles = await (await images.find_with_user(user.name)).to_list()
+        im_ids = []
+        for obj in tiles:
+            buf = attr_carrier()
+            buf.cutout = f"static/{obj.id}_cutout.png"
+            buf.curve = f"static/{obj.id}_curve.png"
+            buf.description = markdown.markdown(obj.description)
+            buf.ztf_id = obj.ztf_id
+            buf.id = obj.id
+            im_ids.append(buf)
     except:
         user = None
         data = None
+        im_ids = None
     context = {
         "user": user,
         "request": request,
         "table": data,
         "token": request.cookies.get('access_token') if not user is None else '',
-        "count": len(data) if not data is None else 0
+        "count": len(data) if not data is None else 0,
+        "tiles": im_ids,
+        'tiles_count': len(im_ids) if im_ids is not None else 0
     }
     return templates.TemplateResponse("index.html", context)
 
@@ -151,5 +170,8 @@ async def index(request: Request):
 
 
 if __name__ == '__main__':
-    #uvicorn.run("main:app", host="0.0.0.0", port=24000, reload=True)
-    uvicorn.run("main:app", host="127.0.0.1", port=24000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
+        ssl_keyfile="certs/privkeyl.pem",
+        ssl_certfile="certs/fullchainl.pem")
+    #uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)
+

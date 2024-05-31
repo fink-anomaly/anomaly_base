@@ -57,8 +57,9 @@ async def cookie_decode_token(token: str) -> User:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials"
     )
-    token = token.removeprefix("Bearer").strip()
+
     try:
+        token = token.removeprefix("Bearer").strip()
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
         username: str = payload.get("user")
         if username is None:

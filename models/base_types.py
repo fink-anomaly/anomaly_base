@@ -6,6 +6,17 @@ from beanie import Document
 from pydantic import Field
 from beanie import PydanticObjectId
 
+class ImageDocument(Document):
+    id: PydanticObjectId = Field(default_factory=PydanticObjectId, alias="_id")
+    image1: bytes
+    image2: bytes
+    description: str
+    ztf_id: str
+    user: str
+
+
+    class Settings:
+        collection = "images"
 
 class reaction(Document):
 
