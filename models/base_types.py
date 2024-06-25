@@ -59,7 +59,7 @@ class update_reaction(BaseModel):
 class User(Document):
     name: str
     password: str
-    tg_id: Optional[str]
+    tg_id: Optional[str] = 'ND'
     
     class Settings:
         name = "users"

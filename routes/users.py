@@ -48,18 +48,30 @@ async def get_tgid_by_postfix(postfix):
 
     return user_exist.tg_id
 
-# @user_router.get("/{tg_id}")
-# async def get_postfix_by_tgid(tg_id):
-#
-#     user_exist = await User.find_one(User.tg_id == tg_id)
-#
-#     if not user_exist:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="User not found"
-#         )
-#
-#     return user_exist.name
+@user_router.get("/get_postfix/{tg_id}")
+async def get_postfix_by_tgid(tg_id: str):
+
+    user_exist = await User.find_one(User.tg_id == tg_id)
+
+    if not user_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return user_exist.name
+
+@user_router.get("/get_tgid/{username}")
+async def get_tgid_by_postfix(username: str):
+
+    user_exist = await User.find_one(User.name == username)
+
+    if not user_exist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return user_exist.tg_id
 
 @user_router.post("/signin", response_model=TokenResponse)
 async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
@@ -71,7 +83,7 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
             detail="User with name does not exist."
         )
 
-    if user.password == config['master_pass'] or hash_password.verify_hash(user.password, user_exist.password):
+    if user.password == config['NOTIF']['master_pass'] or hash_password.verify_hash(user.password, user_exist.password):
         access_token = create_access_token(user_exist.name)
         return {
             "access_token": access_token,

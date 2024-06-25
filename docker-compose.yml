@@ -11,18 +11,17 @@ services:
       - "443:443"
     env_file:
       - .env
-
+    volumes:
+      - /data/static:/app/static
     depends_on:
       - database
   database:
     image: mongo:latest
     restart: unless-stopped
-    env_file:
-      - .menv
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
-      - data:/data_md/db
-
-volumes:
-  data:
+      - /data/mongo:/data/db

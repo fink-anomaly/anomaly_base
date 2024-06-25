@@ -1,5 +1,7 @@
 from typing import Dict, List, Optional
 import markdown
+import datetime
+import sys
 from database.connection import Settings
 from routes.users import user_router
 from routes.reactions import reactions_router
@@ -9,6 +11,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from auth.hash_password import HashPassword
+import aiohttp
+from loguru import logger
 from models.base_types import User
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
@@ -16,13 +20,19 @@ from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from routes.upload import images
 from routes.upload import image_router
-
+from routes.users import get_postfix_by_tgid
+from routes.users import config
+from models.base_types import reaction
+import uvicorn
 
 class Update(BaseModel):
     update_id: int
     message: dict
 
-import uvicorn
+
+
+logger.remove()
+logger.add(sys.stdout, enqueue=True)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -36,13 +46,62 @@ app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
 app.include_router(image_router, prefix='/images')
 
+class CallbackQuery(BaseModel):
+    id: str
+    from_user: dict
+    message: dict
+    data: str
 
-# async def get_bot_updates():
-#     url = f'https://api.telegram.org/bot{settings.TG_TOKEN}/getUpdates'
-#     async with aiohttp.ClientSession() as session:
-#         async with session.get(url) as response:
-#             updates = await response.json()
-#             return updates["result"] if 'result' in updates else None
+
+@app.post("/telegram-webhook")
+async def telegram_webhook(request: Request):
+    update = await request.json()
+    if "callback_query" in update:
+        callback_query = CallbackQuery(**update["callback_query"])
+        await handle_callback_query(callback_query)
+    return {"status": "ok"}
+
+
+async def handle_callback_query(callback_query: CallbackQuery):
+    callback_data = callback_query.data
+    is_anomaly = False if 'NA' in callback_data else True
+    _, ztf_id = callback_data.split('_')
+
+    username = await get_postfix_by_tgid(
+        callback_query.from_user['id']
+    )
+
+    data = {
+        'ztf_id': ztf_id,
+        'tag': 'ANOMALY' if is_anomaly else 'NOT ANOMALY',
+        'user': username,
+        'changed_at': str(datetime.datetime.now())
+    }
+
+    new_reaction = reaction.parse_obj(data)
+
+    event = await reactions.find_with_ztfid(new_reaction.ztf_id)
+    if event:
+        await event.update({"$set": {'tag': new_reaction.tag}})
+        return {
+        "message": "Updated!"
+        }
+
+    await reactions.save(new_reaction)
+
+
+    url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                url,
+                data={
+                    "callback_query_id": callback_query.id
+                }
+        ) as response:
+            answer = await response.json()
+            logger.info(answer)
+
+
 
 async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)
@@ -170,8 +229,8 @@ async def index(request: Request):
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
-        ssl_keyfile="certs/privkeyl.pem",
-        ssl_certfile="certs/fullchainl.pem")
-    #uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)
+    # uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
+    #     ssl_keyfile="certs/privkeyl.pem",
+    #     ssl_certfile="certs/fullchainl.pem")
+    uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)
 
