@@ -4,6 +4,7 @@ import datetime
 import sys
 from database.connection import Settings
 from routes.users import user_router
+import requests
 from routes.reactions import reactions_router
 from routes.reactions import reactions
 from fastapi import Depends, FastAPI, HTTPException, Response, status, Request
@@ -24,6 +25,7 @@ from routes.users import get_postfix_by_tgid
 from routes.users import config
 from models.base_types import reaction
 import uvicorn
+import telebot
 
 class Update(BaseModel):
     update_id: int
@@ -33,18 +35,19 @@ class Update(BaseModel):
 
 logger.remove()
 logger.add(sys.stdout, enqueue=True)
-
+bot = telebot.TeleBot(config['NOTIF']['master_pass'])
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 settings = Settings()
 hash_password = HashPassword()
 
-# Register routes
 
 app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
 app.include_router(image_router, prefix='/images')
+
+
 
 class CallbackQuery(BaseModel):
     id: str
@@ -57,8 +60,21 @@ class CallbackQuery(BaseModel):
 async def telegram_webhook(request: Request):
     update = await request.json()
     if "callback_query" in update:
-        callback_query = CallbackQuery(**update["callback_query"])
+        data = {
+            'id': update["callback_query"]['id'],
+            'from_user': update["callback_query"]['from'],
+            'message': update["callback_query"]['message'],
+            'data': update["callback_query"]['data']
+        }
+        callback_query = CallbackQuery(**data)
         await handle_callback_query(callback_query)
+    else:
+        if request.headers.get("content-type") == "application/json":
+            json_str = await request.json()
+            update = telebot.types.Update.de_json(json_str)
+            bot.process_new_updates([update])
+        else:
+            raise HTTPException(status_code=400, detail="Invalid request")
     return {"status": "ok"}
 
 
@@ -89,13 +105,14 @@ async def handle_callback_query(callback_query: CallbackQuery):
 
     await reactions.save(new_reaction)
 
-
+    # TODO: изменять текст кнопок после обработки
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     async with aiohttp.ClientSession() as session:
         async with session.post(
                 url,
                 data={
-                    "callback_query_id": callback_query.id
+                    "callback_query_id": callback_query.id,
+                    'text': f'The{" " if is_anomaly else " NOT "}ANOMALY mark is set for the object {ztf_id}'
                 }
         ) as response:
             answer = await response.json()
@@ -112,8 +129,16 @@ async def get_reactions_table(name) -> str:
 @app.on_event("startup")
 async def init_db():
     await settings.initialize_database()
-    #bot_info = await get_bot_updates()
-    #print(bot_info)
+
+    url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
+    webhook_url = "https://fink.matwey.name/telegram-webhook"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data={"url": webhook_url}) as response:
+            res = await response.json()
+            print(res)
+
+    #bot.set_webhook(webhook_url)
 
 @app.get("/all_reactions")
 async def all_reactions():
@@ -225,12 +250,51 @@ async def index(request: Request):
     }
     return templates.TemplateResponse("index.html", context)
 
+users = {}
+
+@bot.message_handler(commands=['help'])
+def help(message):
+    help_message = """Доступны следующие команды:
+/start старт бота
+/connect связать логин в базе с аккаунтом телеграмма
+"""
+    bot.send_message(message.from_user.id, help_message)
+
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.from_user.id, "Здравствуйте! Используйте /connect для связи бота со своим аккаунтом в базе")
+
+
+@bot.message_handler(commands=['connect'])
+def model(message):
+    bot.send_message(message.from_user.id, "Введите логин в базе")
+    users[message.from_user.id] = {}
+    bot.register_next_step_handler(message, save_login)
+
+def save_login(message):
+    user, tg_id = message.text, message.from_user.id
+    users[tg_id]['name'] = user
+    bot.send_message(message.from_user.id, "Введите пароль")
+    bot.register_next_step_handler(message, save_password)
+
+def save_password(message):
+    password, tg_id = message.text, message.from_user.id
+    r = requests.post('https://fink.matwey.name:443/user/connect', json={
+        'name': users[tg_id]['name'],
+        'password': password,
+        'tg_id': tg_id
+    })
+    if r.status_code != 200:
+        bot.send_message(message.from_user.id, f'Сервер вернул ошибку {r.status_code}. Текст ошибки: {r.text}')
+    else:
+        bot.send_message(message.from_user.id, f'Логин {users[tg_id]["name"]} успешно связан с tg_id {tg_id}')
+
 
 
 
 if __name__ == '__main__':
-    # uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
-    #     ssl_keyfile="certs/privkeyl.pem",
-    #     ssl_certfile="certs/fullchainl.pem")
-    uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)
-
+    uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
+        ssl_keyfile="certs/privkeyl.pem",
+        ssl_certfile="certs/fullchainl.pem")
+    # uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)

@@ -50,9 +50,7 @@ async def get_tgid_by_postfix(postfix):
 
 @user_router.get("/get_postfix/{tg_id}")
 async def get_postfix_by_tgid(tg_id: str):
-
-    user_exist = await User.find_one(User.tg_id == tg_id)
-
+    user_exist = await User.find_one(User.tg_id == str(tg_id))
     if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
