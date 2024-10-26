@@ -99,14 +99,21 @@ async def handle_callback_query(callback_query: CallbackQuery):
     event = await reactions.find_with_ztfid(new_reaction.ztf_id)
     if event:
         await event.update({"$set": {'tag': new_reaction.tag}})
-        return {
-        "message": "Updated!"
-        }
+    else:
+        await reactions.save(new_reaction)
 
-    await reactions.save(new_reaction)
-
-    # TODO: изменять текст кнопок после обработки
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
+    url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
+
+    inline_keyboard = {
+        "inline_keyboard": [
+            [
+                {"text": "Anomaly" if not is_anomaly else 'SET', "callback_data": f"A_{ztf_id}"},
+                {"text": "Not anomaly" if is_anomaly else 'SET', "callback_data": f"NA_{ztf_id}"}
+            ]
+        ]
+    }
+
     async with aiohttp.ClientSession() as session:
         async with session.post(
                 url,
@@ -118,6 +125,17 @@ async def handle_callback_query(callback_query: CallbackQuery):
             answer = await response.json()
             logger.info(answer)
 
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                url_button_change,
+                json={
+                    "chat_id": callback_query.message['chat']['id'],
+                    "message_id": callback_query.message['message_id'],
+                    "reply_markup": inline_keyboard
+                }
+        ) as response:
+            answer = await response.json()
+            logger.info(answer)
 
 
 async def get_reactions_table(name) -> str:
