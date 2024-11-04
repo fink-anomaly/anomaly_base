@@ -2,6 +2,7 @@ from typing import Dict, List, Optional
 import markdown
 import datetime
 import sys
+import os
 from database.connection import Settings
 from routes.users import user_router
 import requests
@@ -312,7 +313,11 @@ def save_password(message):
 
 
 if __name__ == '__main__':
-    uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
-        ssl_keyfile="certs/privkeyl.pem",
-        ssl_certfile="certs/fullchainl.pem")
-    # uvicorn.run("main:app", host="127.0.0.1", port=443, reload=True)
+    keypath = "certs/privkey.pem"
+    certpath = "certs/fullchainl.pem"
+    if os.path.isfile(keypath) and os.path.isfile(certpath):
+        uvicorn.run("main:app", host="0.0.0.0", port=443, reload=True,
+            ssl_keyfile=keypath,
+            ssl_certfile=certpath)
+    else:
+        uvicorn.run("main:app", host="0.0.0.0", port=80, reload=True)

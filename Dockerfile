@@ -9,6 +9,7 @@ RUN pip install --upgrade pip
 RUN pip install -r /app/requirements.txt
 
 EXPOSE 443
+EXPOSE 80
 
 COPY ./ /app
 
