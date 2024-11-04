@@ -23,7 +23,7 @@ TG_TOKEN=<YOUR_TG_API_TOKEN>
 
 2) Create a certs folder (on the same level as the `docker-compose.yml` file), save the SSL certificates in it;
 3) In the `docker-compose.yml` file, replace the paths `/home/vps/web_data`, `/home/vps/mongodata`, `/home/vps/mongobackups` and `/home/vps/anomaly_base/mongo_backup.sh` with your own.
-4) Replace the domain name in this line with your own: https://github.com/fink-anomaly/anomaly_base/blob/new_design/main.py#L134.
+4) Replace the domain name in this line with your own: [here](https://github.com/fink-anomaly/anomaly_base/blob/new_design/main.py#L152) and [here](https://github.com/fink-anomaly/anomaly_base/blob/new_design/main.py#L301).
 5) Execute the commands in the project directory:
 ```bash
 docker-compose build
