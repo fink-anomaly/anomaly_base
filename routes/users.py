@@ -4,6 +4,7 @@ from auth.jwt_handler import create_access_token
 from database.connection import Database
 from auth.hash_password import HashPassword
 import configparser
+import os
 
 from models.base_types import User, TokenResponse
 
@@ -17,7 +18,8 @@ hash_password = HashPassword()
 
 config = configparser.ConfigParser()
 config.read("secret_data.ini")
-
+if not config.has_option('NOTIF', 'master_pass'):
+    config['NOTIF'] = { 'master_pass':os.environ['TG_TOKEN'] }
 
 @user_router.post("/signup")
 async def sign_user_up(user: User) -> dict:

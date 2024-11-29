@@ -8,11 +8,8 @@ RUN pip install --upgrade pip
 
 RUN pip install -r /app/requirements.txt
 
-RUN pip uninstall bson pymongo -y
-
-RUN pip install pymongo==4.6.0
-
 EXPOSE 443
+EXPOSE 80
 
 COPY ./ /app
 
