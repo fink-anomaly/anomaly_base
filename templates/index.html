@@ -233,7 +233,6 @@
 													<td>{{row.changed_at}}</td>
 													<td>        <button id="{{row.id}}">Delete</button>
 												<script>
-													const token_ = 'Bearer ' + '{{token}}';
 													document.getElementById("{{row.id}}").addEventListener("click", async function() {
 														const response = await fetch('/reaction/{{row.id}}', {
 															method: 'DELETE',
