@@ -2,7 +2,7 @@ from typing import List
 import datetime
 from beanie import PydanticObjectId
 from beanie.operators import Set
-from database.connection import Database
+from database.mongo import Database
 from fastapi import APIRouter, HTTPException, status, Depends
 from models.base_types import reaction, update_reaction
 from auth.authenticate import authenticate

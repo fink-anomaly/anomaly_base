@@ -1,6 +1,6 @@
 from fastapi import UploadFile, Form
 from beanie import PydanticObjectId
-from database.connection import Database
+from database.mongo import Database
 from fastapi import APIRouter, HTTPException, status, Depends, Response
 from models.base_types import ImageDocument
 from auth.authenticate import authenticate

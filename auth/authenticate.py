@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, Dict
 from fastapi import Request
 from jose import jwt, JWTError
-from database.connection import Settings
+from database.mongo import Settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel

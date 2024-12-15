@@ -3,7 +3,7 @@ import markdown
 import datetime
 import sys
 import os
-from database.connection import Settings
+from database.mongo import Settings
 from routes.users import user_router
 import requests
 from routes.reactions import reactions_router

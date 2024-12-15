@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 import routes.users
-from database.connection import Settings
+from database.mongo import Settings
 from fastapi import HTTPException, status
 from jose import jwt, JWTError
 from models.base_types import User
