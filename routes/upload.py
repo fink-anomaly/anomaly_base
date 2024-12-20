@@ -4,6 +4,9 @@ from database.connection import Database
 from fastapi import APIRouter, HTTPException, status, Depends, Response
 from models.base_types import ImageDocument
 from auth.authenticate import authenticate
+from loguru import logger
+
+from logging import getLogger
 
 image_router = APIRouter(
     tags=["Uploads"]
@@ -17,21 +20,22 @@ async def upload_images(ztf_id: str, image1: UploadFile, image2: UploadFile, des
     image2_bytes = await image2.read()
 
     image_doc = ImageDocument(
-        image1=image1_bytes,
-        image2=image2_bytes,
         description=description,
         ztf_id=ztf_id,
         user=user
     )
     try:
         with open(f"static/{image_doc.id}_curve.png", "wb") as f:
-            f.write(image_doc.image1)
+            f.write(image1_bytes)
         with open(f"static/{image_doc.id}_cutout.png", "wb") as f:
-            f.write(image_doc.image2)
-    except:
-        pass
+            f.write(image2_bytes)
 
-    await images.save(image_doc)
+        await images.save(image_doc)
+
+    except Exception as e:
+        log = getLogger(__name__)
+        log.error(e)
+        return {"message":"Error occurred during upload. Please check logs."}
 
     return {
         "message": "Images uploaded successfully",
