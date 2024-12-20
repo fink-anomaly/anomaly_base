@@ -1,8 +1,7 @@
 from fastapi import UploadFile, Form
-from beanie import PydanticObjectId
 from database.mongo import Database
 from fastapi import APIRouter, HTTPException, status, Depends, Response
-from models.base_types import ImageDocument
+from models.base_types import ImageDocument, ObjectId
 from auth.authenticate import authenticate
 from loguru import logger
 
@@ -55,7 +54,7 @@ async def get_image(image_id: str, image_number: int):
 
 
 @image_router.delete("/{num}")
-async def delete_reaction(num: PydanticObjectId, user: str = Depends(authenticate)) -> dict:
+async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> dict:
     event = await images.delete(num)
     if event:
         return {

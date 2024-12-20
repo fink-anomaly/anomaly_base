@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None
     TG_TOKEN: Optional[str] = None
 
+    def is_mongo(self):
+        return self.DATABASE_URL.startswith("mongodb://")
+
     async def initialize_database(self):
         if self.DATABASE_URL.startswith("mongodb://"):
             await mongo_init(self)

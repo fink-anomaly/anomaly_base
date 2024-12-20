@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 
 from beanie import init_beanie, PydanticObjectId
-from models.base_types import reaction, User, ImageDocument
+from models.mongo import reaction, User, ImageDocument
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
