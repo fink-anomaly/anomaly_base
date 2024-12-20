@@ -18,10 +18,6 @@ from pydantic import BaseModel
 
 from loguru import logger
 
-from auth.hash_password import HashPassword
-from auth.jwt_handler import create_access_token
-from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
-
 from database.settings import Settings
 
 from models.base_types import reaction
@@ -34,6 +30,11 @@ from routes.upload import images
 from routes.users import config
 from routes.users import get_postfix_by_tgid
 from routes.users import user_router
+
+from auth.hash_password import HashPassword
+from auth.jwt_handler import create_access_token
+from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
+
 
 class Update(BaseModel):
     update_id: int

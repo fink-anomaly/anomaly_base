@@ -3,22 +3,12 @@ from typing import Any, List, Optional
 from beanie import init_beanie, PydanticObjectId
 from models.base_types import reaction, User, ImageDocument
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseSettings, BaseModel
+from pydantic import BaseModel
 
-
-class Settings(BaseSettings):
-    DATABASE_URL: Optional[str] = None
-    SECRET_KEY: Optional[str] = None
-    TG_TOKEN: Optional[str] = None
-
-    async def initialize_database(self):
-        client = AsyncIOMotorClient(self.DATABASE_URL)
-        await init_beanie(database=client.db_name,
-                          document_models=[reaction, User, ImageDocument])
-
-    class Config:
-        env_file = ".env"
-
+async def initialize_database(Settings):
+   client = AsyncIOMotorClient(Settings.DATABASE_URL)
+   await init_beanie(database=client.db_name,
+                     document_models=[reaction, User, ImageDocument])
 
 class Database:
     def __init__(self, model):
