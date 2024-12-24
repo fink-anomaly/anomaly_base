@@ -1,10 +1,8 @@
 from typing import List
 import datetime
-from beanie import PydanticObjectId
-from beanie.operators import Set
-from database.connection import Database
+from database.mongo import Database
 from fastapi import APIRouter, HTTPException, status, Depends
-from models.base_types import reaction, update_reaction
+from models.base_types import reaction, update_reaction, ObjectId
 from auth.authenticate import authenticate
 
 reactions_router = APIRouter(
@@ -54,7 +52,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
 
 
 @reactions_router.delete("/{num}")
-async def delete_reaction(num: PydanticObjectId, user: str = Depends(authenticate)) -> dict:
+async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> dict:
     event = await reactions.delete(num)
     if event:
         return {
@@ -83,7 +81,7 @@ async def delete_reaction_from_user(name: str, user: str = Depends(authenticate)
 
 
 @reactions_router.put("/{num}", response_model=reaction)
-async def update_reaction(num: PydanticObjectId, new_data: update_reaction, user: str = Depends(authenticate)) -> reaction:
+async def update_reaction(num: ObjectId, new_data: update_reaction, user: str = Depends(authenticate)) -> reaction:
     event = await reactions.update(num, new_data)
     if event:
         return event

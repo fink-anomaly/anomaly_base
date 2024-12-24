@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
-from database.connection import Database
+from database.mongo import Database
 from auth.hash_password import HashPassword
 import configparser
 import os

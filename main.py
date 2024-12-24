@@ -1,32 +1,40 @@
-from typing import Dict, List, Optional
-import markdown
-import datetime
-import sys
 import os
-from database.connection import Settings
-from routes.users import user_router
+import sys
 import requests
-from routes.reactions import reactions_router
-from routes.reactions import reactions
+import telebot
+import uvicorn
+import aiohttp
+import datetime
+import markdown
+
 from fastapi import Depends, FastAPI, HTTPException, Response, status, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from auth.hash_password import HashPassword
-import aiohttp
+
+from typing import Dict, List, Optional
+from pydantic import BaseModel
+
 from loguru import logger
+
+from database.settings import Settings
+
+from models.base_types import reaction
 from models.base_types import User
+
+from routes.reactions import reactions
+from routes.reactions import reactions_router
+from routes.upload import image_router
+from routes.upload import images
+from routes.users import config
+from routes.users import get_postfix_by_tgid
+from routes.users import user_router
+
+from auth.hash_password import HashPassword
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
-from pydantic import BaseModel
-from fastapi.staticfiles import StaticFiles
-from routes.upload import images
-from routes.upload import image_router
-from routes.users import get_postfix_by_tgid
-from routes.users import config
-from models.base_types import reaction
-import uvicorn
-import telebot
+
 
 class Update(BaseModel):
     update_id: int

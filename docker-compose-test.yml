@@ -1,0 +1,29 @@
+version: "3.4"
+
+services:
+  api:
+    build: .
+    image: anomaly_base:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./static:/app/static
+      - .certs:/certs
+      - .:/app
+    depends_on:
+      - database
+  database:
+    image: mongo:4.4.6
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ./mongodata:/data/db
