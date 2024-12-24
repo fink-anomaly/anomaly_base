@@ -273,28 +273,28 @@ users = {}
 
 @bot.message_handler(commands=['help'])
 def help(message):
-    help_message = """Доступны следующие команды:
-/start старт бота
-/connect связать логин в базе с аккаунтом телеграмма
+    help_message = """The following commands are available:
+/start bot start
+/connect link the login in the database to the telegram account
 """
     bot.send_message(message.from_user.id, help_message)
 
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.from_user.id, "Здравствуйте! Используйте /connect для связи бота со своим аккаунтом в базе")
+    bot.send_message(message.from_user.id, "Hello! Use /connect to connect the bot to your account in the database")
 
 
 @bot.message_handler(commands=['connect'])
 def model(message):
-    bot.send_message(message.from_user.id, "Введите логин в базе")
+    bot.send_message(message.from_user.id, "Enter your username in the database")
     users[message.from_user.id] = {}
     bot.register_next_step_handler(message, save_login)
 
 def save_login(message):
     user, tg_id = message.text, message.from_user.id
     users[tg_id]['name'] = user
-    bot.send_message(message.from_user.id, "Введите пароль")
+    bot.send_message(message.from_user.id, "Enter the password")
     bot.register_next_step_handler(message, save_password)
 
 def save_password(message):
@@ -305,9 +305,9 @@ def save_password(message):
         'tg_id': tg_id
     })
     if r.status_code != 200:
-        bot.send_message(message.from_user.id, f'Сервер вернул ошибку {r.status_code}. Текст ошибки: {r.text}')
+        bot.send_message(message.from_user.id, f'The server returned the error {r.status_code}. Error text: {r.text}')
     else:
-        bot.send_message(message.from_user.id, f'Логин {users[tg_id]["name"]} успешно связан с tg_id {tg_id}')
+        bot.send_message(message.from_user.id, f'Login {users[tg_id]["name"]} has been successfully linked to tg_id {tg_id}')
 
 
 
