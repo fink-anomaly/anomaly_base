@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 import uuid
-from typing import List, Optional
-from fastapi import APIRouter
+from typing import Optional
 from beanie import Document
 from pydantic import Field
 from beanie import PydanticObjectId
