@@ -1,14 +1,12 @@
 from pydantic import BaseModel
 import uuid
-from typing import List, Optional
-from fastapi import APIRouter
+from typing import Optional
 from beanie import Document
 from pydantic import Field
-from beanie import PydanticObjectId
-ObjectId = PydanticObjectId
+from beanie import PydanticObjectId as ObjectId
 
 class ImageDocument(Document):
-    id: PydanticObjectId = Field(default_factory=PydanticObjectId, alias="_id")
+    id: ObjectId = Field(default_factory=ObjectId, alias="_id")
     description: str
     ztf_id: str
     user: str
@@ -19,7 +17,7 @@ class ImageDocument(Document):
 
 class reaction(Document):
 
-    id: PydanticObjectId = Field(default_factory=PydanticObjectId, alias="_id")
+    id: ObjectId = Field(default_factory=ObjectId, alias="_id")
     ztf_id: str
     tag: str
     user: Optional[str] = None

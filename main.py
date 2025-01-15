@@ -41,20 +41,20 @@ class Update(BaseModel):
     message: dict
 
 
-
 logger.remove()
 logger.add(sys.stdout, enqueue=True)
+
 bot = telebot.TeleBot(config['NOTIF']['master_pass'])
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-settings = Settings()
-hash_password = HashPassword()
-
-
 app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
 app.include_router(image_router, prefix='/images')
+
+templates = Jinja2Templates(directory="templates")
+settings = Settings()
+hash_password = HashPassword()
 
 
 
@@ -249,11 +249,18 @@ class attr_carrier:
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    user = None
+    data = []
+    tiles = []
+    im_ids = []
+
     try:
         user = await get_current_user_from_cookie(request)
-        data = await get_reactions_table(user.name)
-        tiles = await (await images.find_with_user(user.name)).to_list()
-        im_ids = []
+
+        if user:
+            data = await get_reactions_table(user.name)
+            tiles = await (await images.find_with_user(user.name)).to_list()
+
         for obj in tiles:
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
@@ -262,10 +269,11 @@ async def index(request: Request):
             buf.ztf_id = obj.ztf_id
             buf.id = obj.id
             im_ids.append(buf)
-    except:
-        user = None
-        data = None
-        im_ids = None
+
+    except Exception as e:
+        import traceback
+        logger.info('Serving / failed: %s' % traceback.format_exc())
+
     context = {
         "user": user,
         "request": request,
@@ -273,8 +281,9 @@ async def index(request: Request):
         "token": request.cookies.get('access_token') if not user is None else '',
         "count": len(data) if not data is None else 0,
         "tiles": im_ids,
-        'tiles_count': len(im_ids) if im_ids is not None else 0
+        'tiles_count': len(im_ids)
     }
+
     return templates.TemplateResponse("index.html", context)
 
 users = {}

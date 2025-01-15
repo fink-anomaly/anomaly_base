@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
-from database.mongo import Database
+from database import Database
 from auth.hash_password import HashPassword
 import configparser
 import os
@@ -24,12 +24,12 @@ if not config.has_option('NOTIF', 'master_pass'):
 @user_router.post("/signup")
 async def sign_user_up(user: User) -> dict:
     user_exist = await User.find_one(User.name == user.name)
-
     if user_exist:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User with name provided exists already."
         )
+
     hashed_password = hash_password.create_hash(user.password)
     user.password = hashed_password
     await users.save(user)
@@ -39,9 +39,7 @@ async def sign_user_up(user: User) -> dict:
 
 @user_router.get("/{postfix}")
 async def get_tgid_by_postfix(postfix):
-
     user_exist = await User.find_one(User.name == postfix)
-
     if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -76,7 +74,6 @@ async def get_tgid_by_postfix(username: str):
 @user_router.post("/signin", response_model=TokenResponse)
 async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
     user_exist = await User.find_one(User.name == user.username)
-    
     if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -99,25 +96,19 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
 @user_router.post("/connect")
 async def connect_with_tg(user: User) -> dict:
     user_exist = await User.find_one(User.name == user.name)
-
     if not user_exist:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User with name not found."
         )
+
     if not hash_password.verify_hash(user.password, user_exist.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid details passed."
         )
 
-    await user_exist.update(
-        {"$set":
-            {
-                'tg_id': user.tg_id
-            }
-        }
-    )
+    await user_exist.set({User.tg_id: user.tg_id})
     return {
         "message": "User connected successfully"
     }
@@ -128,6 +119,8 @@ async def authenticate_user(username: str, plain_password: str) -> User:
     user = await User.find_one(User.name == username)
     if not user:
         return False
+
     if not hash_password.verify_hash(plain_password, user.hashed_password):
         return False
+
     return user
