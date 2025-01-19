@@ -158,7 +158,7 @@ async def init_db():
     await settings.initialize_database()
 
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
-    webhook_url = "https://anomaly.fink-broker.org/telegram-webhook"
+    webhook_url = f"https://config['SERVER']['domen']/telegram-webhook"
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, data={"url": webhook_url}) as response:
@@ -307,7 +307,7 @@ def save_login(message):
 
 def save_password(message):
     password, tg_id = message.text, message.from_user.id
-    r = requests.post('https://anomaly.fink-broker.org:443/user/connect', json={
+    r = requests.post(f'https://config['SERVER']['domen']:443/user/connect', json={
         'name': users[tg_id]['name'],
         'password': password,
         'tg_id': tg_id
