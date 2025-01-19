@@ -1,11 +1,9 @@
 from fastapi import UploadFile, Form
-from database.mongo import Database
+from database import Database
 from fastapi import APIRouter, HTTPException, status, Depends, Response
 from models.base_types import ImageDocument, ObjectId
 from auth.authenticate import authenticate
 from loguru import logger
-
-from logging import getLogger
 
 image_router = APIRouter(
     tags=["Uploads"]
@@ -24,16 +22,17 @@ async def upload_images(ztf_id: str, image1: UploadFile, image2: UploadFile, des
         user=user
     )
     try:
+        # this creates ID in case of an sql backend
+        await images.save(image_doc)
+
         with open(f"static/{image_doc.id}_curve.png", "wb") as f:
             f.write(image1_bytes)
         with open(f"static/{image_doc.id}_cutout.png", "wb") as f:
             f.write(image2_bytes)
 
-        await images.save(image_doc)
 
     except Exception as e:
-        log = getLogger(__name__)
-        log.error(e)
+        logger.error(e)
         return {"message":"Error occurred during upload. Please check logs."}
 
     return {

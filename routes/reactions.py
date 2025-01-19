@@ -1,6 +1,6 @@
 from typing import List
 import datetime
-from database.mongo import Database
+from database import Database
 from fastapi import APIRouter, HTTPException, status, Depends
 from models.base_types import reaction, update_reaction, ObjectId
 from auth.authenticate import authenticate
@@ -40,7 +40,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
         new_reaction.changed_at = str(datetime.datetime.now())
     event = await reactions.find_with_ztfid(new_reaction.ztf_id)
     if event:
-        await event.update({"$set": {'tag': new_reaction.tag}})
+        await event.set({reaction.tag: new_reaction.tag})
         return {
         "message": "Updated!"
         }
