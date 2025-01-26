@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   api:
-    build: /src/anomaly
+    build: ./src/anomaly
     image: anomaly_base:latest
     restart: always
     volumes:
