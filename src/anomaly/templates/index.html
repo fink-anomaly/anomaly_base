@@ -1,0 +1,461 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Anomaly base</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="{{ url_for('static', path='/assets/css/main.css') }}"/>
+		<noscript><link rel="stylesheet" href="{{ url_for('static', path='/assets/css/noscript.css') }}"/></noscript>
+		<style>
+			table {
+			  width: 100%;
+			  border-collapse: collapse;
+			}
+			th, td {
+			  border: 1px solid black;
+			  padding: 8px;
+			  text-align: left;
+			}
+	  	</style>
+
+		<style>
+		  td {
+			border: 1px solid black; /* Добавляем границу ячейкам */
+			text-align: center; /* Центрирование содержимого ячейки по горизонтали */
+			vertical-align: middle; /* Центрирование содержимого ячейки по вертикали */
+			padding: 10px; /* Добавляем отступы внутри ячейки */
+		  }
+		</style>
+		<style>
+			.menu {
+				max-width: 600px;
+				margin: 0 auto;
+			}
+
+			.menu-section {
+				background-color: #fff;
+				border: 1px solid #ccc;
+				border-radius: 5px;
+				margin-bottom: 20px;
+				padding: 15px;
+			}
+
+			.section-title {
+				margin: 0;
+				padding-bottom: 10px;
+				border-bottom: 1px solid #ddd;
+				font-size: 18px;
+			}
+
+			.section-items {
+				list-style-type: none;
+				padding: 0;
+				margin: 10px 0 0 0;
+			}
+
+			.section-items li {
+				margin: 5px 0;
+			}
+
+			.section-items a {
+				text-decoration: none;
+				color: #2c3e50;
+			}
+
+			.section-items a:hover {
+				color: #3498db;
+			}
+
+			.tile {
+				border: 1px solid #ccc;
+				padding: 10px;
+				margin: 10px;
+				display: inline-block;
+				vertical-align: top;
+				width: 500px;
+			}
+			.tile img {
+				width: 100%;
+				height: auto;
+				cursor: pointer;
+			}
+			.buttons {
+				display: flex;
+				justify-content: space-between;
+			}
+			.modal {
+            display: none; /* Скрыть по умолчанию */
+            position: fixed; /* Оставаться на месте */
+            z-index: 1; /* На вершине */
+            padding-top: 120px; /* Расположить в 120 от верхней части */
+            left: 0;
+            top: 0;
+            width: 100%; /* Полная ширина */
+            height: 100%; /* Полная высота */
+            overflow: auto; /* Включить прокрутку, если нужно */
+            background-color: rgb(0,0,0); /* Fallback цвет */
+            background-color: rgba(0,0,0,0.4); /* Чёрный с прозрачностью */
+			}
+			/* Модальное содержимое */
+			.modal-content {
+				margin: auto;
+				display: block;
+				width: 80%;
+				max-width: 700px;
+				transition: transform 0.25s ease; /* Плавный зум */
+			}
+			/* Стили для закрытия */
+			.close {
+				position: absolute;
+				top: 15px;
+				right: 35px;
+				color: #f1f1f1;
+				font-size: 40px;
+				font-weight: bold;
+				transition: 0.3s;
+			}
+			.close:hover,
+			.close:focus {
+				color: #bbb;
+				text-decoration: none;
+				cursor: pointer;
+			}
+			/* Стили для зумирования */
+			.zoom {
+				cursor: zoom-in;
+			}
+			.zoomed {
+				transform: scale(2); /* Увеличение в 2 раза */
+				cursor: zoom-out;
+			}
+		</style>
+		<script>
+			// Открытие модального окна
+			function openModal(imgSrc) {
+				const modal = document.getElementById("myModal");
+				const modalImg = document.getElementById("img01");
+				modal.style.display = "block";
+				modalImg.src = imgSrc;
+				modalImg.classList.remove("zoomed"); // Сброс зума при открытии нового изображения
+			}
+
+			// Закрытие модального окна
+			function closeModal(event) {
+				const modal = document.getElementById("myModal");
+				if (event.target === modal) {
+					modal.style.display = "none";
+				}
+			}
+
+			// Зумирование изображения в модальном окне
+			function toggleZoom(event) {
+				event.stopPropagation(); // Предотвращение закрытия модального окна при зумировании
+				const modalImg = document.getElementById("img01");
+				modalImg.classList.toggle("zoomed");
+			}
+
+			const token_ = 'Bearer ' + '{{token}}';
+
+			async function add_anomaly(ztfid, flag, tileid)
+			{
+				const response = await fetch('/reaction/new', {
+					method: 'POST',
+					headers: {
+						'Authorization': token_,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						'ztf_id': ztfid,
+						'tag': flag
+					})
+				});
+				if (response.ok) {
+					document.getElementById(`tile-${tileid}`).remove();
+				}
+			}
+
+			async function remove_tail(obj_id)
+			{
+				const response = await fetch(`/images/${obj_id}`, {
+					method: 'DELETE',
+					headers: {
+								'Authorization': token_,
+								'Content-Type': 'application/json'
+							}
+				});
+
+				if (response.ok) {
+					document.getElementById(`tile-${obj_id}`).remove();
+				}
+
+			}
+
+			async function go_to_TNS(obj_id)
+			{
+				window.location.hash = "#TNS";
+				document.getElementById(`object_id`).value = obj_id;
+				document.getElementById('remarks').value = "Data provided by ZTF and processed by Fink";
+			}
+		</script>
+
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper-->
+			<div id="wrapper">
+
+				<!-- Nav -->
+					<nav id="nav">
+						<a href="#" class="icon solid fa-home"><span>Home</span></a>
+						{% if user %}
+							<a href="#work" class="icon solid fa-folder"><span>Anomalies</span></a>
+							<a href="#notifications" class="icon solid fa-newspaper"><span>Notifications</span></a>
+							<a href="#TNS" class="icon solid fa-wifi"><span>TNS form</span></a>
+							<a href="#Settings" class="icon solid fa-wrench"><span>Settings</span></a>
+						{% endif %}
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+							<article id="home" class="panel intro">
+
+									
+									{% if user %}
+										<header>
+											<h1>Hello, {{user.name}}!</h1>
+											<p>click on the tab to the right to view anomalies</p>
+										</header>
+										<a href="#work" class="jumplink pic">
+											<span class="arrow icon solid fa-chevron-right"><span>Data</span></span>
+											<div class="container">
+												<img src="{{ url_for('static', path='/images/fink.jpg') }}"  alt="" style="max-width: 100%; max-height: 100%;"/>
+											</div>
+										</a>
+				
+									{% else %}
+										<header>
+											<h1>Authorization</h1>
+											<p>enter your login and password in the form on the right</p>
+										</header>
+										{% for error in errors %}
+											<p style="color: red">{{ error }}</p>
+										{% endfor %}
+										<form action="/auth/login" method="post">
+											<div class="col-6 col-12-medium">
+												<input type="text" name="username" placeholder="username" value="{{ username }}" required>
+											</div>
+											<p> </p>
+											<div class="col-12">
+												<input type="password" name="password" placeholder="password" value="{{ password }}" required>
+											</div>
+												<p> </p>
+											<input type="submit" value="Login">
+										</form>	
+									{% endif %}
+							</article>
+
+							<article id="work" class="panel">
+								{% if user %}
+									<header>
+										<h2>Your anomalies ️</h2>
+									</header>
+									<p>Hello, {{ user.name }}! You have {{count}} reactions now</p>
+									<div class="scrollable">
+										<table class="dataframe">
+										  <thead>
+											<tr style="text-align: right;">
+											  <th>ztf_id</th>
+											  <th>tag</th>
+											  <th>user</th>
+											  <th>changed_at</th>
+												<th></th>
+											</tr>
+										  </thead>
+										  <tbody>
+
+											{% for row in table %}
+												<tr>
+													<td><a href=https://fink-portal.org/{{row.ztf_id}}>{{row.ztf_id}}</a></td>
+													<td>{{row.tag}}</td>
+													<td>{{row.user}}</td>
+													<td>{{row.changed_at}}</td>
+													<td>        <button id="{{row.id}}">Delete</button>
+												<script>
+													document.getElementById("{{row.id}}").addEventListener("click", async function() {
+														const response = await fetch('/reaction/{{row.id}}', {
+															method: 'DELETE',
+															headers: {
+																'Authorization': token_,
+																'Content-Type': 'application/json'
+															}
+														});
+														if (response.ok) {
+															location.reload();
+														}
+													});
+												</script></td>
+												</tr>
+											{% endfor %}
+										  </tbody>
+										</table>
+									</div>
+								{% endif %}
+							</article>
+
+						{% if user %}
+							<article id="notifications" class="panel">
+								<div id="tiles">
+									{% for tile in tiles %}
+										<div class="tile" id="tile-{{ tile.id }}">
+											<img src="{{ tile.curve }}" alt="Image 2" onclick="openModal('{{ tile.curve }}')">
+											<img src="{{ tile.cutout }}" alt="Image 1" onclick="openModal('{{ tile.cutout }}')">
+											<div>{{ tile.description | safe }}</div>
+											<div class="buttons">
+												<button style="background-color: red; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', 'NOT ANOMALY', '{{ tile.id }}')">Not anomaly</button>
+												<button onclick="remove_tail('{{ tile.id }}')">Just remove</button>
+												<button onclick="go_to_TNS('{{ tile.ztf_id }}')">TNS Submit</button>
+												<button style="background-color: green; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', 'ANOMALY', '{{ tile.id }}')">Anomaly</button>
+											</div>
+										</div>
+									{% endfor %}
+								</div>
+
+								<div id="myModal" class="modal" onclick="closeModal(event)">
+									<span class="close" onclick="closeModal(event)">&times;</span>
+									<img class="modal-content zoom" id="img01" onclick="toggleZoom(event)">
+								</div>
+							</article>
+
+							<article id="TNS" class="panel">
+								<form id="myForm">
+									<label for="object_id">ObjectID:</label>
+									<input type="text" id="object_id" name="object_id" required><br><br>
+
+									<label for="remarks">Remarks:</label>
+									<input type="text" id="remarks" name="remarks" required><br><br>
+
+									<label for="reporter">Reporter:</label>
+									<input type="text" id="reporter" name="reporter" required><br><br>
+
+									<label for="at_type">AT Type:</label>
+									<select id="at_type" name="at_type" required>
+										<option value="type1">PSN - Possible SN</option>
+										<option value="type2">PNV - Possible Nova</option>
+										<option value="type3">AGN - Known AGN</option>
+										<option value="type3">NUC - Possible nuclear</option>
+										<option value="type3">Other - Undefined</option>
+									</select><br><br>
+
+									<button type="button" onclick="submitForm()">Submit report</button>
+									<div id="result"></div>
+
+								</form>
+
+								<script>
+									async function submitForm() {
+										const form = document.getElementById('myForm');
+										const formData = new FormData(form);
+
+										try {
+											const response = await fetch('/user/submitTNS', {
+												method: 'POST',
+												headers: {
+													'Authorization': token_
+												},
+												body: formData
+											});
+
+											if (!response.ok) {
+												throw new Error('Network response was not ok');
+											}
+
+											const result = await response.json();
+											console.log('Success:', result);
+											const resultDiv = document.getElementById('result');
+											resultDiv.textContent = JSON.stringify(result, null, 2);
+										} catch (error) {
+											console.error('Error:', error);
+											const resultDiv = document.getElementById('result');
+           									resultDiv.textContent = 'Error: ' + error.message;
+										}
+									}
+								</script>
+							</article>
+
+							<article id="Settings" class="panel">
+								<div class="menu">
+									<div class="menu-section">
+										<h2 class="section-title">Model Dashboard</h2>
+										<ul class="section-items">
+											<li>Last Update Time: <span id="last-update">Loading...</span></li>
+											<li>Last Deployment Time: <span id="last-deployment">Loading...</span></li>
+											<li><button onclick="retrainModel('{{user.name}}')">Request Model Update</button></li>
+										</ul>
+									</div>
+
+								</div>
+
+								<script>
+									async function fetchModelInfo() {
+
+										try {
+											const lastUpdateResponse = await fetch(`/user/get_last_update_model/{{user.name}}`);
+											if (!lastUpdateResponse.ok) throw new Error('Model service offline');
+											const lastUpdateData = await lastUpdateResponse.json();
+											document.getElementById('last-update').innerText = lastUpdateData.last_update_time || 'No data';
+
+											const lastDeploymentResponse = await fetch(`/user/get_last_download_model/{{user.name}}`);
+											if (!lastDeploymentResponse.ok) throw new Error('Model service offline');
+											const lastDeploymentData = await lastDeploymentResponse.json();
+											document.getElementById('last-deployment').innerText = lastDeploymentData.last_download_time || 'No data';
+										} catch (error) {
+											console.error('Error fetching model info:', error);
+											alert('Error: ' + error.message);
+										}
+									}
+
+									async function retrainModel() {
+
+										try {
+											const response = await fetch(`/reaction/retrain_model{{user.name}}`, {
+											method: 'GET',
+											headers: {
+													'Authorization': token_
+											}
+											});
+
+											if (!response.ok) throw new Error('Failed to retrain model');
+
+											const data = await response.json();
+											alert(`Retrain Model Response: ${JSON.stringify(data)}`);
+										} catch (error) {
+											console.error('Error retraining model:', error);
+											alert('Error: ' + error.message);
+										}
+									}
+
+									window.onload = fetchModelInfo;
+								</script>
+							</article>
+
+						{% endif %}
+
+					</div>
+
+				<!-- Footer -->
+					<div id="footer">
+						<ul class="copyright">
+							<li>Anomaly base</li>
+						</ul>
+					</div>
+
+			</div>
+
+			<script src="{{ url_for('static', path='/assets/js/jquery.min.js') }}"></script>
+			<script src="{{ url_for('static', path='/assets/js/browser.min.js') }}"></script>
+			<script src="{{ url_for('static', path='/assets/js/breakpoints.min.js') }}"></script>
+			<script src="{{ url_for('static', path='/assets/js/util.js') }}"></script>
+			<script src="{{ url_for('static', path='/assets/js/main.js') }}"></script>
+
+	</body>
+</html>

@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   api:
-    build: .
+    build: /src/anomaly
     image: anomaly_base:latest
     restart: always
     ports:

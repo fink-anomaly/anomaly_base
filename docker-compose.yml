@@ -2,20 +2,21 @@ version: "3.4"
 
 services:
   api:
-    build: .
+    build: /src/anomaly
     image: anomaly_base:latest
     restart: always
     volumes:
       - .certs:/certs
+      - /home/vps/web_data:/app/static
     ports:
       - "443:443"
       - "80:80"
     env_file:
       - .env
-    volumes:
-      - /home/vps/web_data:/app/static
     depends_on:
       - database
+    environment:
+      MODEL_SERVICE_IP: ${MODEL_SERVICE_IP}
   database:
     image: mongo:4.4.6
     restart: unless-stopped

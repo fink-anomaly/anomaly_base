@@ -1,0 +1,5 @@
+venv
+.env
+.git
+static
+TNS_last.json
