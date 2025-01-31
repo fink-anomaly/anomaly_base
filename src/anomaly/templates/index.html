@@ -156,7 +156,7 @@
 
 			const token_ = 'Bearer ' + '{{token}}';
 
-			async function add_anomaly(ztfid, flag, tileid)
+			async function add_anomaly(ztfid, flag, tileid=0, remove_tail=true)
 			{
 				const response = await fetch('/reaction/new', {
 					method: 'POST',
@@ -169,9 +169,10 @@
 						'tag': flag
 					})
 				});
-				if (response.ok) {
+				if (response.ok && remove_tail) {
 					document.getElementById(`tile-${tileid}`).remove();
 				}
+				return response.ok;
 			}
 
 			async function remove_tail(obj_id)
@@ -207,6 +208,9 @@
 				<!-- Nav -->
 					<nav id="nav">
 						<a href="#" class="icon solid fa-home"><span>Home</span></a>
+						{% if not user %}
+						<a href="#registration" class="icon solid fa-user"><span>Registration</span></a>
+						{% endif %}
 						{% if user %}
 							<a href="#work" class="icon solid fa-folder"><span>Anomalies</span></a>
 							<a href="#notifications" class="icon solid fa-newspaper"><span>Notifications</span></a>
@@ -272,16 +276,20 @@
 											</tr>
 										  </thead>
 										  <tbody>
-
+											
 											{% for row in table %}
 												<tr>
-													<td><a href=https://api.fink-portal.org/{{row.ztf_id}}>{{row.ztf_id}}</a></td>
-													<td>{{row.tag}}</td>
+													<td><a href=https://fink-portal.org/{{row.ztf_id}}>{{row.ztf_id}}</a></td>
+													<td><span id="{{row.id}}_tag">{{row.tag}}</span></td>
 													<td>{{row.user}}</td>
 													<td>{{row.changed_at}}</td>
 													<td>        <button id="{{row.id}}">Delete</button>
+													<td>        <button id="{{row.id}}_change">Change</button>
 												<script>
 													document.getElementById("{{row.id}}").addEventListener("click", async function() {
+														if (!confirm('Are you sure?')) {
+															return;
+														}
 														const response = await fetch('/reaction/{{row.id}}', {
 															method: 'DELETE',
 															headers: {
@@ -293,6 +301,14 @@
 															location.reload();
 														}
 													});
+
+													document.getElementById("{{row.id}}_change").addEventListener("click", async function() {
+														response = add_anomaly('{{ row.ztf_id }}', document.getElementById("{{row.id}}_tag").innerText=='NOT ANOMALY'? 'ANOMALY': 'NOT ANOMALY', 0, false);
+														if (response) {
+															document.getElementById("{{row.id}}_tag").innerText = document.getElementById("{{row.id}}_tag").innerText=='NOT ANOMALY'? 'ANOMALY': 'NOT ANOMALY';
+														}
+													});
+
 												</script></td>
 												</tr>
 											{% endfor %}
@@ -301,6 +317,54 @@
 									</div>
 								{% endif %}
 							</article>
+
+						{% if not user %}
+						<article id="registration" class="panel">
+							<div class="form-container">
+								<h3>Register</h3>
+								<h2>   </h2>
+								<form id="registerForm">
+									<input type="text" id="name" name="name" placeholder="Name" required>
+									<input type="password" id="password" name="password" placeholder="Password" required>
+									<input type="text" id="full_name" name="full_name" placeholder="Full Name (It can be used, for example, when sending to TNS)">
+									<button type="submit">Sign Up</button>
+								</form>
+								<div class="error-message" id="errorMessage"></div>
+
+								<script>
+									document.getElementById('registerForm').addEventListener('submit', async function(event) {
+										event.preventDefault();
+							
+										const formData = new FormData(this);
+										const data = {
+											name: formData.get('name'),
+											password: formData.get('password'),
+											full_name: formData.get('full_name') || ''
+										};
+							
+										try {
+											const response = await fetch('/user/signup', {
+												method: 'POST',
+												headers: {
+													'Content-Type': 'application/json'
+												},
+												body: JSON.stringify(data)
+											});
+							
+											const result = await response.json();
+											if (!response.ok) {
+												throw new Error(result.detail || 'Registration failed');
+											}
+											alert("You have successfully registered")
+											window.location.href = '/#';
+										} catch (error) {
+											document.getElementById('errorMessage').textContent = error.message;
+										}
+									});
+								</script>
+						</article>
+
+						{% endif %}
 
 						{% if user %}
 							<article id="notifications" class="panel">
@@ -387,8 +451,8 @@
 									<div class="menu-section">
 										<h2 class="section-title">Model Dashboard</h2>
 										<ul class="section-items">
-											<li>Last Update Time: <span id="last-update">Loading...</span></li>
-											<li>Last Deployment Time: <span id="last-deployment">Loading...</span></li>
+											<li>Last Update Time: <span id="last-update" style="font-size: 19px;">Loading...</span></li>
+											<li>Last Deployment Time: <span id="last-deployment" style="font-size: 19px;">Loading...</span></li>
 											<li><button onclick="retrainModel('{{user.name}}')">Request Model Update</button></li>
 										</ul>
 									</div>
