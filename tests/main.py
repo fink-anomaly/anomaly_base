@@ -35,7 +35,7 @@ def test_notification(client):
             "image2": image2
         }
         data = {
-            "description": ( "ID: [N+ZTF18abhehdgtest3](https://fink-portal.org/ZTF18abhehdg)"
+            "description": ( "ID: [N+ZTF18abhehdgtest3](https://api.fink-portal.org/ZTF18abhehdg)"
                              "DR OID (<1''): [437113100007476_test3](https://ztf.snad.space/view/437113100007476)"
                              "GAL coordinates: 39.333665,   -10.333186"
                              "EQU: 294.9632227,   0.907184"
