@@ -255,7 +255,7 @@ def print_fink_statistics(tns_logs_folder=None, tns_catalog=None):
     else:
         # Get latests 5 Early SN Ia candidates
         r = requests.post(
-          "https://fink-portal.org/api/v1/latests",
+          "https://api.fink-portal.org/api/v1/latests",
           json={
             "class": "Early SN Ia candidate",
             "columns": "i:objectId",
