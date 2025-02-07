@@ -8,8 +8,6 @@ store
 *.save*
 store/
 /store/
-static
-/static/
 secret_data.ini
 # C extensions
 *.so
