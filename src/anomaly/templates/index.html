@@ -482,79 +482,81 @@
 								</div>
 
 								<script>
-									document.getElementById('trainButton').addEventListener('click', async () => {
-										const modelName = `{{user.name}}`;
-										const progressBar = document.getElementById('progressBar');
-										const statusText = document.getElementById('statusText');
-										const progressContainer = document.getElementById('progressContainer');
+									document.addEventListener('DOMContentLoaded', () => {
 
-										// Сначала скрываем прогресс-бар
-										progressContainer.style.display = 'none';
+										const startTrainingProcess = async () => {
+											const modelName = `{{user.name}}`;
+											const progressBar = document.getElementById('progressBar');
+											const statusText = document.getElementById('statusText');
+											const progressContainer = document.getElementById('progressContainer');
 
-										try {
-											await fetch('/api/start-training', {
-											method: 'POST',
-											headers: { 'Content-Type': 'application/json' },
-											body: JSON.stringify({ model_name: modelName }),
-											});
-											statusText.textContent = 'Обучение запущено...';
-
-											// Показываем контейнер прогресса только после первого успешного опроса
-											let isTrainingComplete = false;
-											let hasStarted = false; // Флаг для отслеживания начала обучения
-											const intervalId = setInterval(async () => {
-											if (isTrainingComplete) return;
+											progressContainer.style.display = 'none';
 
 											try {
-												const response = await fetch(`/user/get_training_status/{{user.name}}`);
-												if (!response.ok) {
-												const errorData = await response.json();
-												throw new Error(errorData.detail || 'Getting status error');
-												}
+												await fetch('/api/start-training', {
+													method: 'POST',
+													headers: { 'Content-Type': 'application/json' },
+													body: JSON.stringify({ model_name: modelName }),
+												});
 
-												const data = await response.json();
-												const currentStatus = data.training_status; // Получаем статус
-
-												if (currentStatus === 0) {
-												// Если статус равен 0, скрываем прогресс-бар
-												progressContainer.style.display = 'none';
 												statusText.textContent = '';
-												} else {
-												// Если статус больше 0, показываем прогресс-бар
-												if (!hasStarted) {
-													progressContainer.style.display = 'block';
-													hasStarted = true;
-												}
 
-												// Обновляем прогресс-бар и текст статуса
-												progressBar.value = currentStatus;
-												switch (currentStatus) {
-													case 1:
-													statusText.textContent = 'Loading data...';
-													break;
-													case 2:
-													statusText.textContent = 'Preprocessing...';
-													break;
-													case 3:
-													statusText.textContent = 'Training...';
-													break;
-													case 4:
-													statusText.textContent = 'Uploading...';
-													isTrainingComplete = true;
-													clearInterval(intervalId);
-													setTimeout(() => {
-														progressContainer.style.display = 'none'; // Скрываем прогресс-бар после завершения
-													}, 1000);
-													break;
-												}
-												}
+												let isTrainingComplete = false;
+												let hasStarted = false;
+
+												const intervalId = setInterval(async () => {
+													if (isTrainingComplete) return;
+
+													try {
+														const response = await fetch(`/user/get_training_status/{{user.name}}`);
+														if (!response.ok) {
+															const errorData = await response.json();
+															throw new Error(errorData.detail || 'Getting status error');
+														}
+
+														const data = await response.json();
+														const currentStatus = data.training_status;
+
+														if (currentStatus === 0) {
+															progressContainer.style.display = 'none';
+															statusText.textContent = '';
+														} else {
+															if (!hasStarted) {
+																progressContainer.style.display = 'block';
+																hasStarted = true;
+															}
+															progressBar.value = currentStatus;
+
+															switch (currentStatus) {
+																case 1:
+																	statusText.textContent = 'Loading data...';
+																	break;
+																case 2:
+																	statusText.textContent = 'Preprocessing...';
+																	break;
+																case 3:
+																	statusText.textContent = 'Training...';
+																	break;
+																case 4:
+																	statusText.textContent = 'Uploading...';
+																	isTrainingComplete = true;
+																	clearInterval(intervalId);
+																	setTimeout(() => {
+																		progressContainer.style.display = 'none';
+																	}, 1000);
+																	break;
+															}
+														}
+													} catch (error) {
+														console.error('Ошибка при получении статуса:', error.message);
+													}
+												}, 30000);
 											} catch (error) {
-												console.error('Ошибка при получении статуса:', error.message);
+												console.error('Ошибка при запуске обучения:', error.message);
 											}
-											}, 30000); // Опрос каждые 30 секунд
-										} catch (error) {
-											console.error('Ошибка при запуске обучения:', error.message);
-										}
+										};
+										startTrainingProcess();
+										document.getElementById('trainButton').addEventListener('click', startTrainingProcess);
 									});
 									
 									

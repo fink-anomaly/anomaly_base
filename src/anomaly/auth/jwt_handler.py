@@ -64,9 +64,9 @@ async def cookie_decode_token(token: str) -> User:
         username: str = payload.get("user")
         if username is None:
             raise credentials_exception
-    except Exception as e:
-        print(e)
-        return None
+    except JWTError as e:
+        raise credentials_exception
+    
 
     user = await routes.users.User.find_one(routes.users.User.name == username)
     return user
