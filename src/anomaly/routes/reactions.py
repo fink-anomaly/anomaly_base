@@ -6,7 +6,6 @@ from models.base_types import reaction, update_reaction, ObjectId
 from auth.authenticate import authenticate
 import aiohttp
 import os
-
 import json
 
 reactions_router = APIRouter(
@@ -21,18 +20,6 @@ MODEL_SERVICE_IP = os.getenv('MODEL_SERVICE_IP')
 async def retrieve_all_reactions() -> List[reaction]:
     events = await reactions.get_all()
     return events
-
-
-# @reactions_router.get("/{id}", response_model=List[reaction])
-# async def retrieve_reaction(id: str) -> List[reaction]:
-
-#     event = await reactions.find_with_ztfid(reaction.ztf_id)
-#     if event:
-#         return event
-#     raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="Reaction with supplied ID does not exist"
-#         )
 
 async def fetch_retrain_model(model_name: str, positive: list, negative: list):
     url = f"http://{MODEL_SERVICE_IP}/retrain_model"
@@ -60,10 +47,9 @@ async def retrain_model(model_name: str, user: str = Depends(authenticate)):
 
 @reactions_router.post("/new")
 async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
-    
     if not 'changed_at' in new_reaction: 
         new_reaction.changed_at = str(datetime.datetime.now())
-    event = await reactions.find_with_ztfid(new_reaction.ztf_id)
+    event = await reactions.find_with_ztfid(new_reaction.ztf_id, user)
     if event:
         await event.set({reaction.tag: new_reaction.tag})
         return {

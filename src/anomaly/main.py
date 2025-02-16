@@ -270,6 +270,7 @@ async def index(request: Request):
             buf.ztf_id = obj.ztf_id
             buf.id = obj.id
             im_ids.append(buf)
+        im_ids = im_ids[::-1]
 
     except Exception as e:
         import traceback
@@ -284,8 +285,11 @@ async def index(request: Request):
         "tiles": im_ids,
         'tiles_count': len(im_ids)
     }
-
     return templates.TemplateResponse("index.html", context)
+
+@app.get("/ReadME.html", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("ReadME.html", {"request": request})
 
 users = {}
 

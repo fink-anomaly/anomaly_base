@@ -166,6 +166,16 @@ async def fetch_last_download(model_name: str):
             else:
                 return f"Error: {response.status} - {await response.text()}"
 
+async def fetch_training_status(model_name: str):
+    url = f"http://{MODEL_SERVICE_IP}/get_training_status?model_name={model_name}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data
+            else:
+                return {"training_status": 0}
+
 @user_router.get("/get_last_update_model/{model_name}")
 async def get_last_update_model(model_name: str):
     result = await fetch_last_update(model_name)
@@ -174,4 +184,9 @@ async def get_last_update_model(model_name: str):
 @user_router.get("/get_last_download_model/{model_name}")
 async def get_last_download_model(model_name: str):
     result = await fetch_last_download(model_name)
+    return result
+
+@user_router.get("/get_training_status/{model_name}")
+async def get_training_status(model_name: str):
+    result = await fetch_training_status(model_name)
     return result

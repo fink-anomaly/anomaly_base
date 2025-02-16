@@ -16,6 +16,10 @@
 			  padding: 8px;
 			  text-align: left;
 			}
+			h1 {
+				text-align: center;       /* Центрирует текст внутри контейнера */
+				margin-bottom: 20px;      /* Добавляет отступ снизу */
+				}
 	  	</style>
 
 		<style>
@@ -27,6 +31,15 @@
 		  }
 		</style>
 		<style>
+			progress {
+				width: 100%;
+				height: 20px;
+			}
+
+			#progressContainer {
+				margin-top: 20px;
+			}
+
 			.menu {
 				max-width: 600px;
 				margin: 0 auto;
@@ -221,6 +234,7 @@
 							<a href="#TNS" class="icon solid fa-wifi"><span>TNS form</span></a>
 							<a href="#Settings" class="icon solid fa-wrench"><span>Settings</span></a>
 						{% endif %}
+						<a href="#ReadME" class="icon solid fa-question"><span>ReadME</span></a>
 					</nav>
 
 				<!-- Main -->
@@ -457,25 +471,114 @@
 										<ul class="section-items">
 											<li>Last Update Time: <span id="last-update" style="font-size: 19px;">Loading...</span></li>
 											<li>Last Deployment Time: <span id="last-deployment" style="font-size: 19px;">Loading...</span></li>
-											<li><button onclick="retrainModel('{{user.name}}')">Request Model Update</button></li>
+											<li><button id="trainButton" onclick="retrainModel('{{user.name}}')">Request Model Update</button></li>
+											<div id="progressContainer" style="display: none;">
+												<progress id="progressBar" value="0" max="4"></progress>
+												<span id="statusText"></span>
+											</div>
 										</ul>
 									</div>
 
 								</div>
 
 								<script>
+									document.getElementById('trainButton').addEventListener('click', async () => {
+										const modelName = `{{user.name}}`;
+										const progressBar = document.getElementById('progressBar');
+										const statusText = document.getElementById('statusText');
+										const progressContainer = document.getElementById('progressContainer');
+
+										// Сначала скрываем прогресс-бар
+										progressContainer.style.display = 'none';
+
+										try {
+											await fetch('/api/start-training', {
+											method: 'POST',
+											headers: { 'Content-Type': 'application/json' },
+											body: JSON.stringify({ model_name: modelName }),
+											});
+											statusText.textContent = 'Обучение запущено...';
+
+											// Показываем контейнер прогресса только после первого успешного опроса
+											let isTrainingComplete = false;
+											let hasStarted = false; // Флаг для отслеживания начала обучения
+											const intervalId = setInterval(async () => {
+											if (isTrainingComplete) return;
+
+											try {
+												const response = await fetch(`/user/get_training_status/{{user.name}}`);
+												if (!response.ok) {
+												const errorData = await response.json();
+												throw new Error(errorData.detail || 'Getting status error');
+												}
+
+												const data = await response.json();
+												const currentStatus = data.training_status; // Получаем статус
+
+												if (currentStatus === 0) {
+												// Если статус равен 0, скрываем прогресс-бар
+												progressContainer.style.display = 'none';
+												statusText.textContent = '';
+												} else {
+												// Если статус больше 0, показываем прогресс-бар
+												if (!hasStarted) {
+													progressContainer.style.display = 'block';
+													hasStarted = true;
+												}
+
+												// Обновляем прогресс-бар и текст статуса
+												progressBar.value = currentStatus;
+												switch (currentStatus) {
+													case 1:
+													statusText.textContent = 'Loading data...';
+													break;
+													case 2:
+													statusText.textContent = 'Preprocessing...';
+													break;
+													case 3:
+													statusText.textContent = 'Training...';
+													break;
+													case 4:
+													statusText.textContent = 'Uploading...';
+													isTrainingComplete = true;
+													clearInterval(intervalId);
+													setTimeout(() => {
+														progressContainer.style.display = 'none'; // Скрываем прогресс-бар после завершения
+													}, 1000);
+													break;
+												}
+												}
+											} catch (error) {
+												console.error('Ошибка при получении статуса:', error.message);
+											}
+											}, 30000); // Опрос каждые 30 секунд
+										} catch (error) {
+											console.error('Ошибка при запуске обучения:', error.message);
+										}
+									});
+									
+									
+									
+									function formatDateTime(dateTimeStr) {
+										const match = dateTimeStr.match(/^(.+T\d{2}:\d{2}:\d{2})(\.\d+)?(.*)$/);
+										if (match) {
+											return match[1] + (match[3] || '');
+										}
+										return dateTimeStr; // Возвращаем исходную строку, если немного не соответствует
+										}
+
 									async function fetchModelInfo() {
 
 										try {
 											const lastUpdateResponse = await fetch(`/user/get_last_update_model/{{user.name}}`);
 											if (!lastUpdateResponse.ok) throw new Error('Model service offline');
 											const lastUpdateData = await lastUpdateResponse.json();
-											document.getElementById('last-update').innerText = lastUpdateData.last_update_time || 'No data';
+											document.getElementById('last-update').innerText = lastUpdateData.last_update_time ? formatDateTime(lastUpdateData.last_update_time) : 'No data';
 
 											const lastDeploymentResponse = await fetch(`/user/get_last_download_model/{{user.name}}`);
 											if (!lastDeploymentResponse.ok) throw new Error('Model service offline');
 											const lastDeploymentData = await lastDeploymentResponse.json();
-											document.getElementById('last-deployment').innerText = lastDeploymentData.last_download_time || 'No data';
+											document.getElementById('last-deployment').innerText = lastDeploymentData.last_download_time ? formatDateTime(lastDeploymentData.last_download_time) : 'No data';
 										} catch (error) {
 											console.error('Error fetching model info:', error);
 											alert('Error: ' + error.message);
@@ -506,7 +609,21 @@
 								</script>
 							</article>
 
+
+
 						{% endif %}
+
+						<article id="ReadME" class="panel">
+							<div id="content"></div>
+							<script>
+								fetch('/ReadME.html')
+								  .then(response => response.text())
+								  .then(data => {
+									document.getElementById('content').innerHTML = data;
+								  })
+								  .catch(error => console.error('Ошибка при загрузке файла:', error));
+							</script>
+						</article>
 
 					</div>
 
