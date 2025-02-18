@@ -42,11 +42,11 @@ class Base(SQLModel, table=False):
 
     @classmethod
     async def find_with_ztfid(cls, ztfid, user):
-        return await cls.find_one({'ztf_id': ztfid, 'user': user})
+        return await cls.find_one(cls.ztf_id == ztfid and cls.user == user)
 
     @classmethod
-    async def get(cls, id):
-        return await cls.find_one({"id": id})
+    async def get(cls, oid):
+        return await cls.find_one(cls.id == oid)
 
     @classmethod
     async def delete(cls, oid):
@@ -56,7 +56,7 @@ class Base(SQLModel, table=False):
             return False
 
         with Session(cls.engine) as sess:
-            sess.execute(delete(cls).where({"id": oid}))
+            sess.execute(delete(cls).where(cls.id == oid))
             sess.commit()
         return True
 

@@ -1,9 +1,15 @@
 from main import app as fink
+import pytest
 
 from fastapi.testclient import TestClient
 
 user = {'name': 'beta', 'password': 'testpwd'}
 user2 = {'username': 'beta', 'password': 'testpwd'}
+
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(fink) as me:
+        yield me
 
 def test_user_create(client):
         response = client.post('/user/signup', json=user)
@@ -29,7 +35,7 @@ imgid = None
 ztfid="ZACASDASDSADtest3"
 
 def test_notification(client):
-    with open("test_cutout.png", "rb") as image1, open("test_curve.png", "rb") as image2:
+    with open("tests/test_cutout.png", "rb") as image1, open("tests/test_curve.png", "rb") as image2:
         files = {
             "image1": image1,
             "image2": image2
@@ -70,10 +76,10 @@ def test_delete_image(client):
     response = client.delete(f'/reaction/{imgid}', headers=headers)
     assert response.status_code == 200
     
-def test():
-    with TestClient(fink) as client:
-        test_user_create(client)
-        test_login(client)
-        test_notification(client)
-        test_mark_anomaly(client)
-        test_delete_image(client)
+#def test():
+#    with TestClient(fink) as client:
+#        test_user_create()
+#        test_login()
+#        test_notification()
+#        test_mark_anomaly()
+#        test_delete_image()

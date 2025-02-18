@@ -7,6 +7,8 @@ import aiohttp
 import datetime
 import markdown
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, Response, status, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -44,9 +46,25 @@ class Update(BaseModel):
 logger.remove()
 logger.add(sys.stdout, enqueue=True)
 
+@asynccontextmanager
+async def init_db(app: FastAPI):
+    await settings.initialize_database()
+
+    if config['SERVER']['init_bot'] == 'true':
+        url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
+        webhook_url = f"https://{config['SERVER']['domen']}/telegram-webhook"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data={"url": webhook_url}) as response:
+                res = await response.json()
+                print(res)
+
+        ##bot.set_webhook(webhook_url)
+    yield
+
+
 bot = telebot.TeleBot(config['NOTIF']['master_pass'])
 
-app = FastAPI()
+app = FastAPI(lifespan=init_db)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(user_router,  prefix="/user")
 app.include_router(reactions_router, prefix="/reaction")
@@ -152,21 +170,6 @@ async def get_reactions_table(name) -> str:
    rows = await rows.to_list()
    rows = [dict(obj) for obj in rows]
    return rows
-
-@app.on_event("startup")
-async def init_db():
-    await settings.initialize_database()
-
-    if 'matwey' in config['SERVER']['domen']:
-        return None
-    url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
-    webhook_url = f"https://{config['SERVER']['domen']}/telegram-webhook"
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data={"url": webhook_url}) as response:
-            res = await response.json()
-            print(res)
-
-    #bot.set_webhook(webhook_url)
 
 @app.get("/all_reactions")
 async def all_reactions():
