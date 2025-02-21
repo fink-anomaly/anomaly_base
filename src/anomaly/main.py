@@ -288,6 +288,9 @@ async def index(request: Request):
             im_ids.append(buf)
         im_ids = im_ids[::-1]
 
+    except HTTPException:
+        pass
+
     except Exception as e:
         import traceback
         logger.info('Serving / failed: %s' % traceback.format_exc())
