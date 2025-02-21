@@ -59,11 +59,15 @@ async def cookie_decode_token(token: str) -> User:
     )
 
     try:
-        token = token.removeprefix("Bearer").strip()
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        username: str = payload.get("user")
+        username = None
+        if token is not None:
+            token = token.removeprefix("Bearer").strip()
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            username: str = payload.get("user")
+
         if username is None:
             raise credentials_exception
+
     except JWTError as e:
         raise credentials_exception
     
