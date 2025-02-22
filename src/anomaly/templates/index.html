@@ -182,7 +182,7 @@
 						'tag': flag
 					})
 				});
-				if (response.ok && remove_tail) {
+				if (response.ok && remove_tail_) {
                     const remove_response = await remove_tail(`${tileid}`);
                     if (remove_response) {
                         document.getElementById(`tile-${tileid}`).remove();
@@ -290,6 +290,7 @@
 											  <th>tag</th>
 											  <th>user</th>
 											  <th>changed_at</th>
+												<th></th>
 												<th></th>
 											</tr>
 										  </thead>
@@ -493,11 +494,6 @@
 											progressContainer.style.display = 'none';
 
 											try {
-												await fetch('/api/start-training', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/json' },
-													body: JSON.stringify({ model_name: modelName }),
-												});
 
 												statusText.textContent = '';
 
@@ -556,7 +552,6 @@
 											}
 										};
 										startTrainingProcess();
-										document.getElementById('trainButton').addEventListener('click', startTrainingProcess);
 									});
 									
 									

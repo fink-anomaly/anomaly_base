@@ -36,6 +36,7 @@ from routes.users import user_router
 from auth.hash_password import HashPassword
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
+from auth.authenticate import authenticate_cookie, oauth2_scheme_cookie
 
 
 class Update(BaseModel):
@@ -251,6 +252,16 @@ class attr_carrier:
     def __init__(self):
         pass
 
+
+class string_extra(str):
+    def __init__(self, string):
+        self.string = string
+        self.name = self.string
+    
+    def __str__(self):
+        return self.string
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     user = None
@@ -259,7 +270,9 @@ async def index(request: Request):
     im_ids = []
 
     try:
-        user = await get_current_user_from_cookie(request)
+        # user = await get_current_user_from_cookie(request)
+        user = await authenticate_cookie(await oauth2_scheme_cookie(request))
+        user = string_extra(user)
 
         if user:
             data = await get_reactions_table(user.name)

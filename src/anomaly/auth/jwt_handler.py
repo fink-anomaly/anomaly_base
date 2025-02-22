@@ -15,7 +15,7 @@ settings = Settings()
 def create_access_token(user: str):
     payload = {
         "user": user,
-        "expires": time.time() + 3600*10
+        "expires": time.time() + 3600*24*30
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -66,6 +66,8 @@ async def cookie_decode_token(token: str) -> User:
             raise credentials_exception
     except JWTError as e:
         raise credentials_exception
+    except Exception as e:
+        return None
     
 
     user = await routes.users.User.find_one(routes.users.User.name == username)
@@ -90,7 +92,6 @@ async def get_current_user_from_cookie(request: Request) -> User:
     Use this function from inside other routes to get the current user. Good
     for views that should work for both logged in, and not logged in users.
     """
-    #NOTE: здесь извлечение токена из куки
     token = request.cookies.get('access_token')
     user = await cookie_decode_token(token)
     return user
