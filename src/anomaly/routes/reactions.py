@@ -47,11 +47,11 @@ async def retrain_model(model_name: str, user: str = Depends(authenticate)):
 
 @reactions_router.post("/new")
 async def create_reaction(new_reaction: reaction, user: str = Depends(authenticate)) -> dict:
-    if not 'changed_at' in new_reaction: 
+    if not 'changed_at' in new_reaction:
         new_reaction.changed_at = str(datetime.datetime.now())
     event = await reactions.find_with_ztfid(new_reaction.ztf_id, user)
     if event:
-        await event.set({reaction.tag: new_reaction.tag})
+        await event.set({reaction.tag: new_reaction.tag, reaction.changed_at: new_reaction.changed_at})
         return {
         "message": "Updated!"
         }
@@ -78,7 +78,7 @@ async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> d
 @reactions_router.delete("/delete_user/{name}")
 async def delete_reaction_from_user(name: str, user: str = Depends(authenticate)) -> dict:
     """
-    
+
     """
     event = await reactions.delete_all_with_user(name)
     if event:

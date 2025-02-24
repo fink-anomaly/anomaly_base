@@ -6,6 +6,7 @@ import uvicorn
 import aiohttp
 import datetime
 import markdown
+import time
 
 from contextlib import asynccontextmanager
 
@@ -58,8 +59,6 @@ async def init_db(app: FastAPI):
             async with session.post(url, data={"url": webhook_url}) as response:
                 res = await response.json()
                 print(res)
-
-        ##bot.set_webhook(webhook_url)
     yield
 
 
@@ -124,7 +123,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
 
     new_reaction = reaction.parse_obj(data)
 
-    event = await reactions.find_with_ztfid(new_reaction.ztf_id)
+    event = await reactions.find_with_ztfid(new_reaction.ztf_id, username)
     if event:
         await event.update({"$set": {'tag': new_reaction.tag}})
     else:
@@ -257,7 +256,7 @@ class string_extra(str):
     def __init__(self, string):
         self.string = string
         self.name = self.string
-    
+
     def __str__(self):
         return self.string
 
@@ -270,7 +269,6 @@ async def index(request: Request):
     im_ids = []
 
     try:
-        # user = await get_current_user_from_cookie(request)
         user = await authenticate_cookie(await oauth2_scheme_cookie(request))
         user = string_extra(user)
 
