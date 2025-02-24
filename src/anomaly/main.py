@@ -6,7 +6,6 @@ import uvicorn
 import aiohttp
 import datetime
 import markdown
-import time
 
 from contextlib import asynccontextmanager
 
