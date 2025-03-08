@@ -6,6 +6,7 @@ import uvicorn
 import aiohttp
 import datetime
 import markdown
+import time
 
 from contextlib import asynccontextmanager
 
@@ -112,7 +113,6 @@ async def handle_callback_query(callback_query: CallbackQuery):
     username = await get_postfix_by_tgid(
         callback_query.from_user['id']
     )
-
     data = {
         'ztf_id': ztf_id,
         'tag': 'ANOMALY' if is_anomaly else 'NOT ANOMALY',
@@ -139,7 +139,6 @@ async def handle_callback_query(callback_query: CallbackQuery):
             ]
         ]
     }
-
     async with aiohttp.ClientSession() as session:
         async with session.post(
                 url,
@@ -162,12 +161,25 @@ async def handle_callback_query(callback_query: CallbackQuery):
         ) as response:
             answer = await response.json()
             logger.info(answer)
+    
+    result_delete = await images.delete_all_with_ztf_id(ztf_id)
+    if not result_delete:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Тайлы с ztf_id={ztf_id} для удаления не найдены"
+        )
 
 
 async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)
    rows = await rows.to_list()
    rows = [dict(obj) for obj in rows]
+   rows.sort(
+       key=lambda row: datetime.datetime.strptime(row['changed_at'], "%Y-%m-%d %H:%M:%S.%f"),
+       reverse=True
+    )
+   for idx in range(len(rows)):
+       rows[idx]['changed_at'] = datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
    return rows
 
 @app.get("/all_reactions")
@@ -255,7 +267,7 @@ class string_extra(str):
     def __init__(self, string):
         self.string = string
         self.name = self.string
-
+    
     def __str__(self):
         return self.string
 

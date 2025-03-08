@@ -72,3 +72,10 @@ class Database:
         if await search_result.count():
             return search_result
         return None
+    
+    async def delete_all_with_ztf_id(self, ztf_id: str) -> bool:
+        search_result = self.model.find({"ztf_id": ztf_id})
+        if not (await search_result.count() > 0):
+            return False
+        await search_result.delete()
+        return True
