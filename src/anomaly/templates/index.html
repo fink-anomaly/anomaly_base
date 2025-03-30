@@ -142,6 +142,27 @@
 				cursor: zoom-out;
 			}
 		</style>
+		<style>
+		/* Накладываем блок поверх всего */
+		#loader {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 9999;
+		background-color: #fff; 
+		
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-direction: column;
+	
+		font-weight: bold;
+		font-size: 18px;
+		color: #333;
+		}
+		</style>  
 		<script>
 			// Открытие модального окна
 			function openModal(imgSrc) {
@@ -169,7 +190,7 @@
 
 			const token_ = 'Bearer ' + '{{token}}';
 
-			async function add_anomaly(ztfid, flag, tileid=0, remove_tail_=true)
+			async function add_anomaly(ztfid, flag, tileid=0, remove_tail_=true) // TODO: если понадобится удалять тайлы при разметке, тут надо не забыть проставить true
 			{
 				const response = await fetch('/reaction/new', {
 					method: 'POST',
@@ -218,6 +239,10 @@
 
 	</head>
 	<body class="is-preload">
+		<div id="loader">
+			<img src="{{ url_for('static', path='/images/cat-kitten.gif') }}" alt="Loading..." />
+			<p>The page is loading... If you have a large number of unmarked notifications (>1000, for example), it may take 1-2 minutes.</p>
+		</div>
 
 		<!-- Wrapper-->
 			<div id="wrapper">
@@ -279,9 +304,9 @@
 							<article id="work" class="panel">
 								{% if user %}
 									<header>
-										<h2>Your anomalies ️</h2>
+										<h2>Your reactions ️</h2>
 									</header>
-									<p>Hello, {{ user.name }}! You have {{count}} reactions now</p>
+									<p>Hello, {{ user.name }}! You have {{count}} reactions now. The table content is updated when the page is refreshed.</p>
 									<div class="scrollable">
 										<table class="dataframe">
 										  <thead>
@@ -477,12 +502,31 @@
 												<progress id="progressBar" value="0" max="4"></progress>
 												<span id="statusText"></span>
 											</div>
+											<li><button id="logout-button">Logout</button></li>
 										</ul>
 									</div>
 
 								</div>
 
 								<script>
+
+									document.getElementById('logout-button').addEventListener('click', async () => {
+										try {
+											const response = await fetch('user/logout', {
+												method: 'POST',
+												credentials: 'include'
+											});
+											if (response.ok){
+												location.reload();
+											} else {
+												alert(response.text);
+											}
+										} catch (error) {
+											console.error('Error:', error);
+											alert('An error occurred during Logout...');
+										}
+									});
+
 									document.addEventListener('DOMContentLoaded', () => {
 
 										const startTrainingProcess = async () => {
@@ -561,24 +605,30 @@
 										if (match) {
 											return match[1] + (match[3] || '');
 										}
-										return dateTimeStr; // Возвращаем исходную строку, если немного не соответствует
+										return dateTimeStr;
 										}
 
 									async function fetchModelInfo() {
 
 										try {
 											const lastUpdateResponse = await fetch(`/user/get_last_update_model/{{user.name}}`);
-											if (!lastUpdateResponse.ok) throw new Error('Model service offline');
+											if (!lastUpdateResponse.ok) {
+												console.error('Model service offline');
+												return;
+											}
 											const lastUpdateData = await lastUpdateResponse.json();
 											document.getElementById('last-update').innerText = lastUpdateData.last_update_time ? formatDateTime(lastUpdateData.last_update_time) : 'No data';
 
 											const lastDeploymentResponse = await fetch(`/user/get_last_download_model/{{user.name}}`);
-											if (!lastDeploymentResponse.ok) throw new Error('Model service offline');
+											if (!lastDeploymentResponse.ok) {
+												console.error('Model service offline');
+												return;
+											}
 											const lastDeploymentData = await lastDeploymentResponse.json();
 											document.getElementById('last-deployment').innerText = lastDeploymentData.last_download_time ? formatDateTime(lastDeploymentData.last_download_time) : 'No data';
 										} catch (error) {
 											console.error('Error fetching model info:', error);
-											alert('Error: ' + error.message);
+											// alert('Error: ' + error.message);
 										}
 									}
 
@@ -638,6 +688,13 @@
 			<script src="{{ url_for('static', path='/assets/js/breakpoints.min.js') }}"></script>
 			<script src="{{ url_for('static', path='/assets/js/util.js') }}"></script>
 			<script src="{{ url_for('static', path='/assets/js/main.js') }}"></script>
-
+			<script>
+				window.addEventListener('load', function() {
+				  const loader = document.getElementById('loader');
+				  if (loader) {
+					loader.style.display = 'none';
+				  }
+				});
+			</script>
 	</body>
 </html>

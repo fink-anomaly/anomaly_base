@@ -38,6 +38,9 @@ async def fetch_retrain_model(model_name: str, positive: list, negative: list):
 
 @reactions_router.get("/retrain_model{model_name}")
 async def retrain_model(model_name: str, user: str = Depends(authenticate)):
+    return {
+        'message': 'Your model is scheduled to be trained via cron. The new training is launched once a day.'
+    }
     events = await reactions.find_with_user(model_name)
     events = await events.to_list()
     events = [dict(obj) for obj in events]

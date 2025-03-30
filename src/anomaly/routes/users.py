@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Form
+from fastapi import APIRouter, HTTPException, status, Depends, Form, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
 from TNS.submit import tns_transfer
@@ -113,6 +113,11 @@ async def sign_user_in(user: OAuth2PasswordRequestForm = Depends()) -> dict:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid details passed."
     )
+
+@user_router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key="access_token", path="/")
+    return {"message": "Выход выполнен успешно"}
 
 @user_router.post("/connect")
 async def connect_with_tg(user: User) -> dict:

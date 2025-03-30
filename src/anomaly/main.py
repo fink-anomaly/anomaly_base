@@ -26,6 +26,7 @@ from database.settings import Settings
 from models.base_types import reaction
 from models.base_types import User
 
+from routes.users import users as users_base
 from routes.reactions import reactions
 from routes.reactions import reactions_router
 from routes.upload import image_router
@@ -39,6 +40,7 @@ from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from auth.authenticate import authenticate_cookie, oauth2_scheme_cookie
 
+SERVICE_VERSION = 0.1
 
 class Update(BaseModel):
     update_id: int
@@ -123,8 +125,19 @@ async def handle_callback_query(callback_query: CallbackQuery):
     new_reaction = reaction.parse_obj(data)
 
     event = await reactions.find_with_ztfid(new_reaction.ztf_id, username)
+    answer_text = (
+        f"Tag '{new_reaction.tag}' has been set for object {ztf_id}."
+    )
     if event:
-        await event.update({"$set": {'tag': new_reaction.tag}})
+        event = await event
+        event_old = event.tag
+        if event.tag == new_reaction.tag:
+            answer_text = (
+                f"Status '{event.tag}' is already set for {ztf_id}. "
+                f"No changes are required."
+            )
+        else:
+            await event.update({"$set": {'tag': new_reaction.tag}})
     else:
         await reactions.save(new_reaction)
 
@@ -144,30 +157,30 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 url,
                 data={
                     "callback_query_id": callback_query.id,
-                    'text': f'The{" " if is_anomaly else " NOT "}ANOMALY mark is set for the object {ztf_id}'
+                    'text': answer_text
                 }
         ) as response:
             answer = await response.json()
             logger.info(answer)
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                url_button_change,
-                json={
-                    "chat_id": callback_query.message['chat']['id'],
-                    "message_id": callback_query.message['message_id'],
-                    "reply_markup": inline_keyboard
-                }
-        ) as response:
-            answer = await response.json()
-            logger.info(answer)
+    if not event or (event and event_old != new_reaction.tag):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    url_button_change,
+                    json={
+                        "chat_id": callback_query.message['chat']['id'],
+                        "message_id": callback_query.message['message_id'],
+                        "reply_markup": inline_keyboard
+                    }
+            ) as response:
+                answer = await response.json()
+                logger.info(answer)
     
-    result_delete = await images.delete_all_with_ztf_id(ztf_id)
-    if not result_delete:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Тайлы с ztf_id={ztf_id} для удаления не найдены"
-        )
+    # result_delete = await images.delete_all_with_ztf_id(ztf_id)
+    # if not result_delete:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_404_NOT_FOUND,
+    #         detail=f"Тайлы с ztf_id={ztf_id} для удаления не найдены"
+    #     )
 
 
 async def get_reactions_table(name) -> str:
@@ -206,7 +219,25 @@ async def login_for_access_token(
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
-
+@app.get("/all_users_reactions")
+async def all_users_reactions():
+    all_users = await users_base.get_all()
+    users_info = []
+    for obj in all_users:
+        username = obj.name
+        events = await reactions.find_with_user(username)
+        events = await events.to_list()
+        events = [dict(obj) for obj in events]
+        positive = [obj['ztf_id'] for obj in events if obj['tag'] == 'ANOMALY']
+        negative = [obj['ztf_id'] for obj in events if obj['tag'] == 'NOT ANOMALY']
+        users_info.append(
+            {
+                "model_name": username,
+                "positive": positive,
+                "negative": negative
+            }
+        )
+    return users_info
 
 @app.get("/auth/login", response_class=HTMLResponse)
 async def login_get(request: Request):
@@ -237,8 +268,9 @@ class LoginForm:
             return True
         return False
 
-
-
+@app.get("/version")
+def get_version():
+    return {"version": SERVICE_VERSION}
 
 @app.post("/auth/login", response_class=HTMLResponse)
 async def login_post(request: Request):
@@ -352,7 +384,7 @@ def save_password(message):
     r = requests.post(f'https://{config["SERVER"]["domen"]}:443/user/connect', json={
         'name': users[tg_id]['name'],
         'password': password,
-        'tg_id': tg_id
+        'tg_id': str(tg_id)
     })
     if r.status_code != 200:
         bot.send_message(message.from_user.id, f'The server returned the error {r.status_code}. Error text: {r.text}')

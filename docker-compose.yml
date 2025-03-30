@@ -1,4 +1,4 @@
-version: "3.4"
+version: "3.1"
 
 services:
   api:
@@ -7,9 +7,10 @@ services:
     restart: always
     volumes:
       - .certs:/certs
-      - /home/vps/web_data:/app/static
+      - /root/web_data:/app/static
     ports:
       - "443:443"
+      - "8080:8080"
       - "80:80"
     env_file:
       - .env
