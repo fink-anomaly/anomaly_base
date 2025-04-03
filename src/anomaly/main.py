@@ -129,7 +129,6 @@ async def handle_callback_query(callback_query: CallbackQuery):
         f"Tag '{new_reaction.tag}' has been set for object {ztf_id}."
     )
     if event:
-        event = await event
         event_old = event.tag
         if event.tag == new_reaction.tag:
             answer_text = (
@@ -137,9 +136,9 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 f"No changes are required."
             )
         else:
-            await event.update({"$set": {'tag': new_reaction.tag}})
+            await event.set({'tag': new_reaction.tag})
     else:
-        await reactions.save(new_reaction)
+            await event.set({'tag': new_reaction.tag, 'changed_at': str(datetime.datetime.now())})
 
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
