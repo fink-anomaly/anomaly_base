@@ -16,7 +16,7 @@ class Base(SQLModel, table=False):
     @classmethod
     async def get_all(cls):
         with Session(cls.engine) as sess:
-            return sess.execute(select(cls)).all()
+            return [o for o, in sess.execute(select(cls)) ]
 
     @classmethod
     async def find_one(cls, expr):
@@ -42,7 +42,8 @@ class Base(SQLModel, table=False):
 
     @classmethod
     async def find_with_ztfid(cls, ztfid, user):
-        return await cls.find_one(cls.ztf_id == ztfid and cls.user == user)
+        with Session(cls.engine) as sess:
+            return sess.execute(select(cls).where(cls.ztf_id == ztfid).where(cls.user == user)).scalar()
 
     @classmethod
     async def get(cls, oid):
