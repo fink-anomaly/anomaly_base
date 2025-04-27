@@ -137,9 +137,9 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 f"No changes are required."
             )
         else:
-            await event.update({"$set": {'tag': new_reaction.tag}})
+            await event.set({'tag': new_reaction.tag})
     else:
-        await reactions.save(new_reaction)
+        await event.set({'tag': new_reaction.tag, 'changed_at': str(datetime.datetime.now())})
 
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
@@ -174,7 +174,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
             ) as response:
                 answer = await response.json()
                 logger.info(answer)
-    
+
     # result_delete = await images.delete_all_with_ztf_id(ztf_id)
     # if not result_delete:
     #     raise HTTPException(
@@ -299,7 +299,7 @@ class string_extra(str):
     def __init__(self, string):
         self.string = string
         self.name = self.string
-    
+
     def __str__(self):
         return self.string
 
