@@ -40,7 +40,7 @@ from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from auth.authenticate import authenticate_cookie, oauth2_scheme_cookie
 
-SERVICE_VERSION = 0.1
+SERVICE_VERSION = 0.11
 
 class Update(BaseModel):
     update_id: int
@@ -129,6 +129,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
         f"Tag '{new_reaction.tag}' has been set for object {ztf_id}."
     )
     if event:
+        event = await event
         event_old = event.tag
         if event.tag == new_reaction.tag:
             answer_text = (
@@ -136,9 +137,9 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 f"No changes are required."
             )
         else:
-            await event.set({'tag': new_reaction.tag})
+            await event.update({"$set": {'tag': new_reaction.tag}})
     else:
-            await event.set({'tag': new_reaction.tag, 'changed_at': str(datetime.datetime.now())})
+        await reactions.save(new_reaction)
 
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
