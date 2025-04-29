@@ -139,7 +139,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
         else:
             await event.set({'tag': new_reaction.tag})
     else:
-        await event.set({'tag': new_reaction.tag, 'changed_at': str(datetime.datetime.now())})
+        await reactions.save(new_reaction)
 
     url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
