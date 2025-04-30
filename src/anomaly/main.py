@@ -129,7 +129,6 @@ async def handle_callback_query(callback_query: CallbackQuery):
         f"Tag '{new_reaction.tag}' has been set for object {ztf_id}."
     )
     if event:
-        event = await event
         event_old = event.tag
         if event.tag == new_reaction.tag:
             answer_text = (
