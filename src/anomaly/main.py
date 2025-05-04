@@ -231,11 +231,13 @@ async def all_users_reactions():
         events = [dict(obj) for obj in events]
         positive = [obj['ztf_id'] for obj in events if obj['tag'] == 'ANOMALY']
         negative = [obj['ztf_id'] for obj in events if obj['tag'] == 'NOT ANOMALY']
+        reaction_list = [obj['tag'] for obj in events]
         users_info.append(
             {
                 "model_name": username,
                 "positive": positive,
-                "negative": negative
+                "negative": negative,
+                "reactions": reaction_list
             }
         )
     return users_info
