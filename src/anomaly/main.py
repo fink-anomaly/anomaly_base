@@ -186,13 +186,15 @@ async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)
    rows = await rows.to_list()
    rows = [dict(obj) for obj in rows]
+   ids = set()
    rows.sort(
        key=lambda row: datetime.datetime.strptime(row['changed_at'], "%Y-%m-%d %H:%M:%S.%f"),
        reverse=True
     )
    for idx in range(len(rows)):
        rows[idx]['changed_at'] = datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
-   return rows
+       ids.add(rows[idx]['ztf_id'])
+   return rows, ids
 
 @app.get("/all_reactions")
 async def all_reactions():
@@ -309,20 +311,34 @@ async def index(request: Request):
     data = []
     tiles = []
     im_ids = []
-
+    ids = set()
     try:
         user = await authenticate_cookie(await oauth2_scheme_cookie(request))
         user = string_extra(user)
 
         if user:
-            data = await get_reactions_table(user.name)
+            data, ids = await get_reactions_table(user.name)
             tiles = await (await images.find_with_user(user.name)).to_list()
 
         for obj in tiles:
+            if str(obj.ztf_id) in ids:
+                continue
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
             buf.curve = f"static/{obj.id}_curve.png"
-            buf.description = markdown.markdown(obj.description)
+            extensions = ['markdown_link_attr_modifier', ]
+            extension_configs = {
+                'markdown_link_attr_modifier': {
+                    'new_tab': 'on',
+                    'no_referrer': 'external_only',
+                    'auto_title': 'on',
+                },
+            }
+            buf.description = markdown.markdown(
+                obj.description,
+                extensions=extensions,
+                extension_configs=extension_configs
+            )
             buf.ztf_id = obj.ztf_id
             buf.id = obj.id
             im_ids.append(buf)
