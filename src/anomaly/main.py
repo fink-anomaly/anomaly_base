@@ -136,7 +136,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 f"No changes are required."
             )
         else:
-            await event.set({'tag': new_reaction.tag})
+            await event.set({'tag': new_reaction.tag, 'changed_at': new_reaction.changed_at})
     else:
         await reactions.save(new_reaction)
 
@@ -174,27 +174,23 @@ async def handle_callback_query(callback_query: CallbackQuery):
                 answer = await response.json()
                 logger.info(answer)
 
-    # result_delete = await images.delete_all_with_ztf_id(ztf_id)
-    # if not result_delete:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND,
-    #         detail=f"Тайлы с ztf_id={ztf_id} для удаления не найдены"
-    #     )
 
 
 async def get_reactions_table(name) -> str:
    rows = await reactions.find_with_user(name)
    rows = await rows.to_list()
    rows = [dict(obj) for obj in rows]
-   ids = set()
+   ids = list()
+   times = list()
    rows.sort(
        key=lambda row: datetime.datetime.strptime(row['changed_at'], "%Y-%m-%d %H:%M:%S.%f"),
        reverse=True
     )
    for idx in range(len(rows)):
        rows[idx]['changed_at'] = datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
-       ids.add(rows[idx]['ztf_id'])
-   return rows, ids
+       ids.append(rows[idx]['ztf_id'])
+       times.append(datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S").timestamp())
+   return rows, ids, times
 
 @app.get("/all_reactions")
 async def all_reactions():
@@ -307,6 +303,19 @@ class string_extra(str):
         return self.string
 
 
+def extract_utc_timestamp(text):
+    for line in text.splitlines():
+        if line.startswith("UTC:"):
+            utc_str = line[4:].strip()
+            break
+    else:
+        raise ValueError("UTC Time not in description!")
+    dt = datetime.strptime(utc_str, "%Y-%m-%d %H:%M:%S.%f")
+    timestamp_seconds = dt.timestamp()
+
+    return timestamp_seconds
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     user = None
@@ -319,12 +328,14 @@ async def index(request: Request):
         user = string_extra(user)
 
         if user:
-            data, ids = await get_reactions_table(user.name)
+            data, ids, reactions_time = await get_reactions_table(user.name)
             tiles = await (await images.find_with_user(user.name)).to_list()
 
         for obj in tiles:
-            if str(obj.ztf_id) in ids:
-                continue
+            cur_id = str(obj.ztf_id)
+            for reaction_id, reaction_time in zip(ids, reactions_time):
+                if cur_id == reaction_id and reaction_time >= extract_utc_timestamp(obj.description):
+                    continue
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
             buf.curve = f"static/{obj.id}_curve.png"

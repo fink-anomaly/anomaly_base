@@ -30,17 +30,3 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - /home/vps/mongodata:/data/db
-  backup:
-    image: ubuntu:latest
-    container_name: mongo_backup
-    restart: always
-    env_file:
-      - .env
-    volumes:
-      - /home/vps/mongodata:/data/db
-      - /home/vps/mongobackups:/data/backup
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-    command: >
-      bash -c "apt-get update && apt-get install -y cron && echo '0 3 * * * /path/to/backup.sh' | crontab - && cron -f"
