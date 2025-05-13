@@ -189,7 +189,7 @@ async def get_reactions_table(name) -> str:
    for idx in range(len(rows)):
        rows[idx]['changed_at'] = datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
        ids.append(rows[idx]['ztf_id'])
-       times.append(datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S").timestamp())
+       # times.append(datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S").timestamp())
    return rows, ids, times
 
 @app.get("/all_reactions")
@@ -333,9 +333,9 @@ async def index(request: Request):
 
         for obj in tiles:
             cur_id = str(obj.ztf_id)
-            for reaction_id, reaction_time in zip(ids, reactions_time):
-                if cur_id == reaction_id and reaction_time >= extract_utc_timestamp(obj.description):
-                    continue
+            # for reaction_id, reaction_time in zip(ids, reactions_time):
+            #     if cur_id == reaction_id and reaction_time >= extract_utc_timestamp(obj.description):
+            #         continue
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
             buf.curve = f"static/{obj.id}_curve.png"
