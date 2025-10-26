@@ -190,8 +190,12 @@
 
 			const token_ = 'Bearer ' + '{{token}}';
 
-			async function add_anomaly(ztfid, flag, tileid=0, remove_tail_=true) // TODO: если понадобится удалять тайлы при разметке, тут надо не забыть проставить true
+			async function add_anomaly(ztfid, candid, flag, tileid=0, remove_tail_=true) // TODO: если понадобится удалять тайлы при разметке, тут надо не забыть проставить true
 			{
+                if (!candid) {
+                    alert('Error: candid_id is missing');
+                    // return false;
+                }
 				const response = await fetch('/reaction/new', {
 					method: 'POST',
 					headers: {
@@ -200,6 +204,7 @@
 					},
 					body: JSON.stringify({
 						'ztf_id': ztfid,
+                        'candid_id': candid,
 						'tag': flag
 					})
 				});
@@ -311,7 +316,7 @@
 										<table class="dataframe">
 										  <thead>
 											<tr style="text-align: right;">
-											  <th>ztf_id</th>
+											  <th>candid_id</th>
 											  <th>tag</th>
 											  <th>user</th>
 											  <th>changed_at</th>
@@ -323,7 +328,7 @@
 
 											{% for row in table %}
 												<tr>
-													<td><a href=https://fink-portal.org/{{row.ztf_id}} target="_blank" rel="noopener">{{row.ztf_id}}</a></td>
+													<td><a href=https://fink-portal.org/{{row.ztf_id}} target="_blank" rel="noopener">{{row.candid_id or row.ztf_id}}</a></td>
 													<td><span id="{{row.id}}_tag">{{row.tag}}</span></td>
 													<td>{{row.user}}</td>
 													<td>{{row.changed_at}}</td>
@@ -347,7 +352,7 @@
 													});
 
 													document.getElementById("{{row.id}}_change").addEventListener("click", async function() {
-														response = add_anomaly('{{ row.ztf_id }}', document.getElementById("{{row.id}}_tag").innerText=='NOT ANOMALY'? 'ANOMALY': 'NOT ANOMALY', 0, false);
+														response = add_anomaly('{{ row.ztf_id }}', '{{ row.candid_id }}', document.getElementById("{{row.id}}_tag").innerText=='NOT ANOMALY'? 'ANOMALY': 'NOT ANOMALY', 0, false);
 														if (response) {
 															document.getElementById("{{row.id}}_tag").innerText = document.getElementById("{{row.id}}_tag").innerText=='NOT ANOMALY'? 'ANOMALY': 'NOT ANOMALY';
 														}
@@ -419,10 +424,10 @@
 											<img src="{{ tile.cutout }}" alt="Image 1" onclick="openModal('{{ tile.cutout }}')">
 											<div>{{ tile.description | safe }}</div>
 											<div class="buttons">
-												<button style="background-color: red; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', 'NOT ANOMALY', '{{ tile.id }}')">Not anomaly</button>
+												<button style="background-color: red; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', '{{ tile.candid_id }}', 'NOT ANOMALY', '{{ tile.id }}')">Not anomaly</button>
 												<button onclick="remove_tail('{{ tile.id }}')">Just remove</button>
 												<button disabled title="This feature is not ready yet..." onclick="go_to_TNS('{{ tile.ztf_id }}')">TNS Submit</button>
-												<button style="background-color: green; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', 'ANOMALY', '{{ tile.id }}')">Anomaly</button>
+												<button style="background-color: green; color: white;" onclick="add_anomaly('{{ tile.ztf_id }}', '{{ tile.candid_id }}', 'ANOMALY', '{{ tile.id }}')">Anomaly</button>
 											</div>
 										</div>
 									{% endfor %}

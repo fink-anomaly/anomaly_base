@@ -10,6 +10,7 @@ class ImageDocument(Document):
     description: str
     ztf_id: str
     user: str
+    candid_id: Optional[str] = None
 
 
     class Settings:
@@ -22,6 +23,7 @@ class reaction(Document):
     tag: str
     user: Optional[str] = None
     changed_at: Optional[str] = None
+    candid_id: Optional[str] = None
     
     class Config:
         scheme_extra = {
@@ -42,6 +44,7 @@ class update_reaction(BaseModel):
     tag: Optional[str]
     user: Optional[str]
     changed_at: Optional[str]
+    candid_id: Optional[str] = None
     
     class Config:
         scheme_extra = {

@@ -46,6 +46,11 @@ class Base(SQLModel, table=False):
             return sess.execute(select(cls).where(cls.ztf_id == ztfid).where(cls.user == user)).scalar()
 
     @classmethod
+    async def find_with_candid(cls, candid, user):
+        with Session(cls.engine) as sess:
+            return sess.execute(select(cls).where(cls.candid_id == candid).where(cls.user == user)).scalar()
+
+    @classmethod
     async def get(cls, oid):
         return await cls.find_one(cls.id == oid)
 
@@ -76,6 +81,7 @@ class ImageDocument(Base, table=True):
     description: str
     ztf_id: str
     user: str
+    candid_id: str | None = Field(default=None, index=True)
 
 class TokenResponse(Base, table=True):
     __tablename__ = "tokens"
@@ -91,5 +97,6 @@ class reaction(Base, table=True):
     tag: str
     user: str | None
     changed_at: str | None
+    candid_id: str | None = Field(default=None, index=True)
 
 update_reaction = reaction

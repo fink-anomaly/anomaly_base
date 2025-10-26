@@ -12,14 +12,15 @@ image_router = APIRouter(
 images = Database(ImageDocument)
 
 @image_router.post("/upload")
-async def upload_images(ztf_id: str, image1: UploadFile, image2: UploadFile, description: str = Form(...), user: str = Depends(authenticate)):
+async def upload_images(ztf_id: str, candid_id: str, image1: UploadFile, image2: UploadFile, description: str = Form(...), user: str = Depends(authenticate)):
     image1_bytes = await image1.read()
     image2_bytes = await image2.read()
 
     image_doc = ImageDocument(
         description=description,
         ztf_id=ztf_id,
-        user=user
+        user=user,
+        candid_id=candid_id
     )
     try:
         # this creates ID in case of an sql backend

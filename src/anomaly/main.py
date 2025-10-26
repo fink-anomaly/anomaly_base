@@ -6,7 +6,7 @@ import uvicorn
 import aiohttp
 import datetime
 import markdown
-import time
+import re
 
 from contextlib import asynccontextmanager
 
@@ -110,13 +110,20 @@ async def telegram_webhook(request: Request):
 async def handle_callback_query(callback_query: CallbackQuery):
     callback_data = callback_query.data
     is_anomaly = False if 'NA' in callback_data else True
-    _, ztf_id = callback_data.split('_')
+
+    try:
+        _, candid_id, ztf_id = callback_data.split('_')
+    except ValueError:
+        logger.error(f"Invalid callback_data format received: {callback_data}. Expected 'TYPE_CANDID_ZTFID'.")
+        return
 
     username = await get_postfix_by_tgid(
         callback_query.from_user['id']
     )
+
     data = {
         'ztf_id': ztf_id,
+        'candid_id': candid_id,
         'tag': 'ANOMALY' if is_anomaly else 'NOT ANOMALY',
         'user': username,
         'changed_at': str(datetime.datetime.now())
@@ -124,43 +131,43 @@ async def handle_callback_query(callback_query: CallbackQuery):
 
     new_reaction = reaction.parse_obj(data)
 
-    event = await reactions.find_with_ztfid(new_reaction.ztf_id, username)
+    event = await reactions.find_with_candid(new_reaction.candid_id, username)
+
     answer_text = (
-        f"Tag '{new_reaction.tag}' has been set for object {ztf_id}."
+        f"Tag '{new_reaction.tag}' has been set for object {ztf_id} (candid: {candid_id})."
     )
+
     if event:
         event_old = event.tag
         if event.tag == new_reaction.tag:
             answer_text = (
-                f"Status '{event.tag}' is already set for {ztf_id}. "
-                f"No changes are required."
+                f"Status '{event.tag}' is already set for {ztf_id}. No changes are required."
             )
         else:
             await event.set({'tag': new_reaction.tag, 'changed_at': new_reaction.changed_at})
     else:
         await reactions.save(new_reaction)
 
-    url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
+    url_answer = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
     url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
 
     inline_keyboard = {
         "inline_keyboard": [
             [
-                {"text": "Anomaly" if not is_anomaly else 'SET', "callback_data": f"A_{ztf_id}"},
-                {"text": "Not anomaly" if is_anomaly else 'SET', "callback_data": f"NA_{ztf_id}"}
+                {"text": "Anomaly" if not is_anomaly else 'SET', "callback_data": f"A_{candid_id}_{ztf_id}"},
+                {"text": "Not anomaly" if is_anomaly else 'SET', "callback_data": f"NA_{candid_id}_{ztf_id}"}
             ]
         ]
     }
+
     async with aiohttp.ClientSession() as session:
         async with session.post(
-                url,
-                data={
-                    "callback_query_id": callback_query.id,
-                    'text': answer_text
-                }
+                url_answer,
+                data={"callback_query_id": callback_query.id, 'text': answer_text}
         ) as response:
             answer = await response.json()
-            logger.info(answer)
+            logger.info(f"Telegram answerCallbackQuery response: {answer}")
+
     if not event or (event and event_old != new_reaction.tag):
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -168,11 +175,11 @@ async def handle_callback_query(callback_query: CallbackQuery):
                     json={
                         "chat_id": callback_query.message['chat']['id'],
                         "message_id": callback_query.message['message_id'],
-                        "reply_markup": inline_keyboard
+                        "reply_markup": inline_keyboard,
                     }
             ) as response:
                 answer = await response.json()
-                logger.info(answer)
+                logger.info(f"Telegram editMessageReplyMarkup response: {answer}")
 
 
 
@@ -225,8 +232,16 @@ async def all_users_reactions():
         events = await reactions.find_with_user(username)
         events = await events.to_list()
         events = [dict(obj) for obj in events]
-        positive = [obj['ztf_id'] for obj in events if obj['tag'] == 'ANOMALY']
-        negative = [obj['ztf_id'] for obj in events if obj['tag'] == 'NOT ANOMALY']
+
+        positive = [
+            {'ztf_id': ev['ztf_id'], 'candid_id': ev['candid_id']}
+            for ev in events if ev['tag'] == 'ANOMALY'
+        ]
+        negative = [
+            {'ztf_id': ev['ztf_id'], 'candid_id': ev['candid_id']}
+            for ev in events if ev['tag'] == 'NOT ANOMALY'
+        ]
+
         reaction_list = [obj['tag'] for obj in events]
         users_info.append(
             {
@@ -316,6 +331,29 @@ def extract_utc_timestamp(text):
     return timestamp_seconds
 
 
+def get_datetime_from_description(description: str) -> datetime.datetime | None:
+    """
+    Parses a description string, extracts the UTC timestamp,
+    and converts it to a datetime object.
+    """
+    if not description:
+        return None
+
+    match = re.search(r"UTC:\s*([\d\-]+\s[\d:\.]+)", description)
+    if not match:
+        return None
+
+    utc_str = match.group(1).strip()
+
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.datetime.strptime(utc_str, fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     user = None
@@ -330,12 +368,14 @@ async def index(request: Request):
         if user:
             data, ids, reactions_time = await get_reactions_table(user.name)
             tiles = await (await images.find_with_user(user.name)).to_list()
+        now_utc = datetime.datetime.utcnow()
+        five_days_ago = now_utc - datetime.timedelta(days=5)
 
         for obj in tiles:
-            cur_id = str(obj.ztf_id)
-            # for reaction_id, reaction_time in zip(ids, reactions_time):
-            #     if cur_id == reaction_id and reaction_time >= extract_utc_timestamp(obj.description):
-            #         continue
+            tile_date = get_datetime_from_description(obj.description)
+            if not tile_date or tile_date < five_days_ago:
+                continue
+
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
             buf.curve = f"static/{obj.id}_curve.png"
@@ -354,7 +394,14 @@ async def index(request: Request):
             )
             buf.ztf_id = obj.ztf_id
             buf.id = obj.id
+            if hasattr(obj, 'candid_id'):
+                buf.candid_id = obj.candid_id
+            else:
+                buf.candid_id = obj.candid_id
+
             im_ids.append(buf)
+
+
         im_ids = im_ids[::-1]
 
     except HTTPException:
