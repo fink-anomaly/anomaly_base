@@ -47,9 +47,14 @@ def get_fink_data(oids, chunk_limit=100):
 
 
 def get_jd_from_description(description: str) -> float | None:
-    if not description: return None
-    match = re.search(r"UTC:\s*([\d\-]+\s[\d:\.]+)", description)
-    if not match: return None
+
+    if not description:
+        return None
+    match = re.search(r"\*?\*?UTC\*?\*?:\s+([\d\-]+\s[\d:\.]+)", description)
+
+    if not match:
+        print(f"DEBUG: Could not find UTC timestamp in description: '{description[:150]}...'")
+        return None
     utc_str = match.group(1).strip()
     dt_object = None
     for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
@@ -58,7 +63,10 @@ def get_jd_from_description(description: str) -> float | None:
             break
         except ValueError:
             continue
-    if not dt_object: return None
+
+    if not dt_object:
+        print(f"DEBUG: Could not parse date string: '{utc_str}'")
+        return None
     return Time(dt_object, format='datetime').jd
 
 
