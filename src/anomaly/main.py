@@ -339,7 +339,7 @@ def get_datetime_from_description(description: str) -> datetime.datetime | None:
     if not description:
         return None
 
-    match = re.search(r"UTC:\s*([\d\-]+\s[\d:\.]+)", description)
+    match = re.search(r"UTC.*?([\d]{4}-[\d]{2}-[\d]{2}\s[\d:.]+)", description)
     if not match:
         return None
 
