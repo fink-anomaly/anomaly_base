@@ -369,11 +369,11 @@ async def index(request: Request):
             data, ids, reactions_time = await get_reactions_table(user.name)
             tiles = await (await images.find_with_user(user.name)).to_list()
         now_utc = datetime.datetime.utcnow()
-        five_days_ago = now_utc - datetime.timedelta(days=5)
+        seven_days_ago = now_utc - datetime.timedelta(days=7)
 
         for obj in tiles:
             tile_date = get_datetime_from_description(obj.description)
-            if not tile_date or tile_date < five_days_ago:
+            if not tile_date or tile_date < seven_days_ago:
                 continue
 
             buf = attr_carrier()
