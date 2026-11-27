@@ -1,8 +1,4 @@
-"""Strict expected failures for the unresolved findings in REVIEW.md.
-
-Each test asserts the desired guarantee. Unexpected fixes become XPASS failures
-so their marker must be removed instead of leaving stale known-issue metadata.
-"""
+"""Regression tests for ownership, webhooks, rendering, and image handling."""
 import datetime
 from unittest.mock import AsyncMock
 

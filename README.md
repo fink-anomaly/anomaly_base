@@ -118,11 +118,10 @@ per test and temporary storage. They supply the missing `[SERVER]` settings,
 resolve image fixtures relative to the test file and block external socket
 connections. No real MongoDB, Telegram or TNS configuration is required.
 
-`tests/test_known_regressions.py` contains four strict `xfail` cases for the
-remaining unresolved findings in `REVIEW.md`. They assert the desired safe behavior,
-so expected failure does **not** mean the defect has been repaired. A future
-fix produces a failing XPASS until its marker is removed. To see the failures
-directly, run:
+`tests/test_known_regressions.py` marks four cases as strict `xfail`: two for
+reaction timestamps, one for upload error handling, and one for image file
+cleanup. Once a fix makes a case pass, remove its `xfail` marker. Run the
+tests with `--runxfail` to see the underlying failures.
 
 ```bash
 python -m pytest tests/test_known_regressions.py --runxfail -q
@@ -188,7 +187,3 @@ endpoint returns 503. A reverse proxy must forward this header. Existing webhook
 registrations must therefore be updated when deploying this change; setting the
 environment variable alone does not change Telegram's registration. See the
 [official setWebhook contract](https://core.telegram.org/bots/api#setwebhook).
-
-No live bot registration is performed by tests. Six formerly expected-failing
-security cases now pass normally. The four remaining `xfail` cases concern
-reaction timestamps, upload failure handling and orphaned image files.
