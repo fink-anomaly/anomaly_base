@@ -2,6 +2,7 @@
 import datetime
 import json
 import subprocess
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, Mock
 
 from bs4 import BeautifulSoup
@@ -55,6 +56,32 @@ def test_bulk_delete_preserves_other_owners(client, owned_store):
         remaining = await store.get_all()
         assert len(remaining) == 1 and remaining[0].user == 'victim'
         assert not await store.delete_all_with_user('owner')
+    client.portal.call(exercise)
+
+
+def test_file_operation_failures_preserve_database_consistency(client, owned_store):
+    store, model = owned_store
+
+    async def exercise():
+        row = model(ztf_id='ZTF17aabvfza', tag='ANOMALY', user='owner', changed_at='old')
+        publication = Mock(side_effect=OSError('image publication failed'))
+        with pytest.raises(OSError, match='image publication failed'):
+            await store.save(row, publication=publication)
+        assert publication.call_args.args[0] is not None
+        assert await store.get_all() == []
+
+        row = model(ztf_id='ZTF17aabvfza', tag='ANOMALY', user='owner', changed_at='old')
+        publication = Mock(return_value=nullcontext())
+        await store.save(row, publication=publication)
+        publication.assert_called_once_with(row.id)
+        cleanup = Mock(side_effect=OSError('image cleanup failed'))
+        assert not await store.delete_owned(row.id, 'intruder', cleanup=cleanup)
+        cleanup.assert_not_called()
+        with pytest.raises(OSError, match='image cleanup failed'):
+            await store.delete_owned(row.id, 'owner', cleanup=cleanup)
+        assert await store.get(row.id)
+        assert await store.delete_owned(row.id, 'owner', cleanup=Mock())
+
     client.portal.call(exercise)
 
 

@@ -344,7 +344,7 @@
 													<td><a href="https://ztf.fink-portal.org/{{ row.ztf_id | urlencode }}" target="_blank" rel="noopener">{{row.candid_id or row.ztf_id}} ({{row.ztf_id}})</a></td>
 													<td><span id="{{row.id}}_tag">{{row.tag}}</span></td>
 													<td>{{row.user}}</td>
-													<td>{{row.changed_at}}</td>
+													<td>{{ row.changed_at or '—' }}</td>
 													<td>        <button id="{{row.id}}">Delete</button>
 													<td>        <button id="{{row.id}}_change">Change</button>
 												<script>

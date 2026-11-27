@@ -1,3 +1,8 @@
+from contextlib import contextmanager
+from functools import partial
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from fastapi import UploadFile, Form
 from database import Database
 from fastapi import APIRouter, HTTPException, status, Depends, Response
@@ -11,6 +16,34 @@ image_router = APIRouter(
 
 images = Database(ImageDocument)
 
+
+def image_paths(image_id):
+    return [Path('static') / f'{image_id}_{kind}.png' for kind in ('curve', 'cutout')]
+
+
+@contextmanager
+def publish_images(staged, image_id):
+    published = []
+    try:
+        for source, target in zip(staged, image_paths(image_id)):
+            source.replace(target)
+            published.append(target)
+        yield
+    except BaseException:
+        # Also undo publication if the database write is cancelled.
+        for path in published:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                logger.exception('Could not remove incomplete notification file {}', path)
+        raise
+
+
+def remove_images(image_id):
+    for path in image_paths(image_id):
+        path.unlink(missing_ok=True)
+
+
 @image_router.post("/upload")
 async def upload_images(ztf_id: str, candid_id: str, image1: UploadFile, image2: UploadFile, description: str = Form(...), user: str = Depends(authenticate)):
     image1_bytes = await image1.read()
@@ -23,18 +56,14 @@ async def upload_images(ztf_id: str, candid_id: str, image1: UploadFile, image2:
         candid_id=candid_id
     )
     try:
-        # this creates ID in case of an sql backend
-        await images.save(image_doc)
-
-        with open(f"static/{image_doc.id}_curve.png", "wb") as f:
-            f.write(image1_bytes)
-        with open(f"static/{image_doc.id}_cutout.png", "wb") as f:
-            f.write(image2_bytes)
-
-
-    except Exception as e:
-        logger.error(e)
-        return {"message":"Error occurred during upload. Please check logs."}
+        with TemporaryDirectory(prefix='.upload-', dir='static') as directory:
+            staged = [Path(directory) / name for name in ('curve.png', 'cutout.png')]
+            for path, content in zip(staged, (image1_bytes, image2_bytes)):
+                path.write_bytes(content)
+            await images.save(image_doc, publication=partial(publish_images, staged))
+    except Exception:
+        logger.exception('Could not store notification images')
+        raise HTTPException(status_code=500, detail='Could not store notification images.') from None
 
     return {
         "message": "Images uploaded successfully",
@@ -55,7 +84,11 @@ async def get_image(image_id: str, image_number: int):
 
 @image_router.delete("/{num}")
 async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> dict:
-    event = await images.delete_owned(num, user)
+    try:
+        event = await images.delete_owned(num, user, cleanup=partial(remove_images, num))
+    except OSError:
+        logger.exception('Could not remove files for notification {}', num)
+        raise HTTPException(status_code=500, detail='Could not remove notification images.') from None
     if event:
         return {
             "message": "Reaction (image) deleted successfully"

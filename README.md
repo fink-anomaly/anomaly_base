@@ -118,14 +118,8 @@ per test and temporary storage. They supply the missing `[SERVER]` settings,
 resolve image fixtures relative to the test file and block external socket
 connections. No real MongoDB, Telegram or TNS configuration is required.
 
-`tests/test_known_regressions.py` marks four cases as strict `xfail`: two for
-reaction timestamps, one for upload error handling, and one for image file
-cleanup. Once a fix makes a case pass, remove its `xfail` marker. Run the
-tests with `--runxfail` to see the underlying failures.
-
-```bash
-python -m pytest tests/test_known_regressions.py --runxfail -q
-```
+`tests/test_known_regressions.py` covers malformed and missing reaction dates,
+image upload failures, and retrying notification deletion after a file error.
 
 The frontend tests execute the shipped `tns.js` with stubbed DOM, HTTP,
 storage and timers. They cover submit/status states, lost responses, retry

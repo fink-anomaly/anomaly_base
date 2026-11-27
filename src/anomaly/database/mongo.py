@@ -15,9 +15,12 @@ class Database:
     def __init__(self, model):
         self.model = model
 
-    async def save(self, document) -> None:
-        await document.create()
-        return
+    async def save(self, document, *, publication=None) -> None:
+        if publication is None:
+            await document.create()
+        else:
+            with publication(document.id):
+                await document.create()
 
     async def get(self, id: str) -> Any:
         doc = await self.model.get(id)
@@ -58,8 +61,16 @@ class Database:
         )
         return self.model.model_validate(doc) if doc else False
 
-    async def delete_owned(self, id: PydanticObjectId, user: str) -> bool:
-        result = await self.model.get_motor_collection().delete_one({"_id": id, "user": user})
+    async def delete_owned(self, id: PydanticObjectId, user: str, *, cleanup=None) -> bool:
+        collection = self.model.get_motor_collection()
+        condition = {"_id": id, "user": user}
+        if cleanup is not None:
+            if await collection.find_one(condition, {"_id": 1}) is None:
+                return False
+            # ObjectIds are allocated once per upload. A repeated cleanup for
+            # the same ID cannot affect a newly uploaded notification.
+            cleanup()
+        result = await collection.delete_one(condition)
         return result.deleted_count > 0
     
     async def delete_all_with_user(self, user: str) -> bool:

@@ -202,21 +202,24 @@ async def handle_callback_query(callback_query: CallbackQuery):
 
 
 
-async def get_reactions_table(name) -> str:
-   rows = await reactions.find_with_user(name)
-   rows = await rows.to_list()
-   rows = [dict(obj) for obj in rows]
-   ids = list()
-   times = list()
-   rows.sort(
-       key=lambda row: datetime.datetime.strptime(row['changed_at'], "%Y-%m-%d %H:%M:%S.%f"),
-       reverse=True
-    )
-   for idx in range(len(rows)):
-       rows[idx]['changed_at'] = datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%d %H:%M:%S")
-       ids.append(rows[idx]['ztf_id'])
-       # times.append(datetime.datetime.strptime(rows[idx]['changed_at'], "%Y-%m-%d %H:%M:%S").timestamp())
-   return rows, ids, times
+async def get_reactions_table(name) -> list[dict]:
+    records = await (await reactions.find_with_user(name)).to_list()
+    dated, undated = [], []
+    for record in records:
+        row = dict(record)
+        try:
+            timestamp = datetime.datetime.fromisoformat(row.get('changed_at'))
+            if timestamp.tzinfo is not None:
+                timestamp = timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        except (TypeError, ValueError, OverflowError):
+            row['changed_at'] = None
+            undated.append(row)
+        else:
+            row['changed_at'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            dated.append((timestamp, row))
+
+    dated.sort(key=lambda item: item[0], reverse=True)
+    return [row for _, row in dated] + undated
 
 @app.get("/all_reactions")
 async def all_reactions():
@@ -379,13 +382,15 @@ async def index(request: Request):
     data = []
     tiles = []
     im_ids = []
-    ids = set()
     try:
         user = await authenticate_cookie(await oauth2_scheme_cookie(request))
         user = string_extra(user)
 
         if user:
-            data, ids, reactions_time = await get_reactions_table(user.name)
+            try:
+                data = await get_reactions_table(user.name)
+            except Exception:
+                logger.exception('Could not load reaction history')
             tiles = await (await images.find_with_user(user.name)).to_list()
         now_utc = datetime.datetime.utcnow()
         seven_days_ago = now_utc - datetime.timedelta(days=7)

@@ -1,5 +1,6 @@
 """Regression tests for ownership, webhooks, rendering, and image handling."""
 import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from bs4 import BeautifulSoup
@@ -38,10 +39,13 @@ def test_other_users_reactions_are_protected(client, headers, operation):
     assert row is not None and row.tag == 'ANOMALY'
 
 
-def test_other_users_images_are_protected(client, headers):
+def test_other_users_images_are_protected(client, headers, tmp_path):
     from models.mongo import ImageDocument
     identifier = insert(client, ImageDocument, ztf_id=OID, user='victim', description='Fixture')
+    image = tmp_path / 'static' / f'{identifier}_curve.png'
+    image.write_bytes(b'other user image')
     assert client.delete('/images/' + identifier, headers=headers).status_code in (403, 404)
+    assert image.read_bytes() == b'other user image'
 
 
 def test_unsigned_telegram_callback_is_rejected(client, app_module, monkeypatch):
@@ -67,9 +71,12 @@ def test_notification_html_cannot_execute_event_handlers(client, headers):
     assert not soup.select('#tiles [onerror]')
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason='P2: reaction date parsing hides the inbox')
-@pytest.mark.parametrize('changed_at', ['2026-11-11 00:00:00', None])
-def test_bad_reaction_timestamp_does_not_hide_fresh_notification(client, headers, changed_at):
+@pytest.mark.parametrize('changed_at, displayed', [
+    ('2026-11-11 00:00:00', '2026-11-11 00:00:00'),
+    (None, '—'),
+    ('bad date', '—'),
+])
+def test_bad_reaction_timestamp_does_not_hide_fresh_notification(client, headers, changed_at, displayed):
     from models.mongo import ImageDocument, reaction
     now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
     insert(client, ImageDocument, user='reporter', ztf_id=OID, description='UTC: ' + now)
@@ -77,10 +84,11 @@ def test_bad_reaction_timestamp_does_not_hide_fresh_notification(client, headers
     client.cookies.set('access_token', headers['Authorization'])
     response = client.get('/')
     assert response.status_code == 200
-    assert len(BeautifulSoup(response.text, 'html.parser').select('#tiles .tile')) == 1
+    page = BeautifulSoup(response.text, 'html.parser')
+    assert len(page.select('#tiles .tile')) == 1
+    assert page.select_one('#work tbody tr').select('td')[3].get_text(strip=True) == displayed
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason='P2: upload storage failures return HTTP 200')
 def test_upload_storage_failure_is_not_reported_as_success(client, headers, tmp_path):
     from tests.test_main import upload
     (tmp_path / 'static').rmdir()
@@ -92,10 +100,66 @@ def test_upload_storage_failure_is_not_reported_as_success(client, headers, tmp_
     assert client.portal.call(count) == 0
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason='P2: image files survive notification deletion')
 def test_notification_deletion_removes_its_files(client, headers, tmp_path):
     from tests.test_main import upload
     identifier = upload(client, headers).json()['id']
     assert client.delete('/images/' + identifier, headers=headers).status_code == 200
     assert not (tmp_path / 'static' / f'{identifier}_curve.png').exists()
     assert not (tmp_path / 'static' / f'{identifier}_cutout.png').exists()
+
+
+def test_notifications_survive_reaction_history_query_failure(client, headers, monkeypatch):
+    from main import reactions
+    from models.mongo import ImageDocument
+
+    now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+    insert(client, ImageDocument, user='reporter', ztf_id=OID, description='UTC: ' + now)
+    monkeypatch.setattr(reactions, 'find_with_user', AsyncMock(side_effect=RuntimeError('history unavailable')))
+    client.cookies.set('access_token', headers['Authorization'])
+    response = client.get('/')
+    assert response.status_code == 200
+    assert len(BeautifulSoup(response.text, 'html.parser').select('#tiles .tile')) == 1
+
+
+def test_failure_publishing_second_image_removes_first_image_and_record(client, headers, tmp_path, monkeypatch):
+    from models.mongo import ImageDocument
+    from tests.test_main import upload
+
+    replace = Path.replace
+
+    def fail_cutout(path, target):
+        if path.name == 'cutout.png':
+            raise OSError('unable to publish cutout')
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, 'replace', fail_cutout)
+    assert upload(client, headers).status_code == 500
+    assert client.portal.call(ImageDocument.count) == 0
+    assert list((tmp_path / 'static').iterdir()) == []
+
+
+def test_database_insert_failure_removes_published_images(client, headers, tmp_path, monkeypatch):
+    from models.mongo import ImageDocument
+    from tests.test_main import upload
+
+    monkeypatch.setattr(ImageDocument, 'create', AsyncMock(side_effect=RuntimeError('insert failed')))
+    assert upload(client, headers).status_code == 500
+    assert list((tmp_path / 'static').iterdir()) == []
+
+
+def test_notification_deletion_can_retry_after_partial_cleanup(client, headers, tmp_path):
+    from beanie import PydanticObjectId
+    from models.mongo import ImageDocument
+    from tests.test_main import upload
+
+    identifier = upload(client, headers).json()['id']
+    cutout = tmp_path / 'static' / f'{identifier}_cutout.png'
+    cutout.unlink()
+    cutout.mkdir()
+
+    assert client.delete(f'/images/{identifier}', headers=headers).status_code == 500
+    assert client.portal.call(ImageDocument.get, PydanticObjectId(identifier)) is not None
+
+    cutout.rmdir()
+    assert client.delete(f'/images/{identifier}', headers=headers).status_code == 200
+    assert client.portal.call(ImageDocument.get, PydanticObjectId(identifier)) is None

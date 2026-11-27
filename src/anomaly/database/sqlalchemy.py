@@ -24,11 +24,16 @@ class Base(SQLModel, table=False):
             return sess.execute(select(cls).where(expr)).scalar()
 
     @classmethod
-    async def save(cls, inst):
-        with Session(cls.engine) as sess:
+    async def save(cls, inst, *, publication=None):
+        with Session(cls.engine, expire_on_commit=publication is None) as sess:
             sess.add(inst)
-            sess.commit()
-            sess.refresh(inst)
+            if publication is None:
+                sess.commit()
+                sess.refresh(inst)
+            else:
+                sess.flush()  # Allocate the ID without exposing the new row.
+                with publication(inst.id):
+                    sess.commit()
 
     async def set(self, changes):
         with Session(self.engine) as sess:
@@ -76,11 +81,17 @@ class Base(SQLModel, table=False):
             return sess.execute(select(cls).where(cls.id == oid, cls.user == user)).scalar_one()
 
     @classmethod
-    async def delete_owned(cls, oid, user):
+    async def delete_owned(cls, oid, user, *, cleanup=None):
         with Session(cls.engine) as sess:
             result = sess.execute(delete(cls).where(cls.id == oid, cls.user == user))
+            if not result.rowcount:
+                return False
+            # Before commit, the deletion still holds the database write lock.
+            # If cleanup raises, Session rolls back and the row can be retried.
+            if cleanup is not None:
+                cleanup()
             sess.commit()
-            return result.rowcount > 0
+            return True
 
     @classmethod
     async def delete_all_with_user(cls, user):
