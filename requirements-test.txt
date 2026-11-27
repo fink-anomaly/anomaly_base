@@ -1,0 +1,6 @@
+-r src/anomaly/requirements.txt
+numpy<2.4
+pytest>=7,<9
+coverage>=7,<8
+mongomock-motor==0.0.34
+beautifulsoup4>=4.12,<5

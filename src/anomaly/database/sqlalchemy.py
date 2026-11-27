@@ -66,6 +66,29 @@ class Base(SQLModel, table=False):
             sess.commit()
         return True
 
+    @classmethod
+    async def update_owned(cls, oid, user, changes):
+        with Session(cls.engine) as sess:
+            result = sess.execute(update(cls).where(cls.id == oid, cls.user == user).values(**changes))
+            sess.commit()
+            if not result.rowcount:
+                return False
+            return sess.execute(select(cls).where(cls.id == oid, cls.user == user)).scalar_one()
+
+    @classmethod
+    async def delete_owned(cls, oid, user):
+        with Session(cls.engine) as sess:
+            result = sess.execute(delete(cls).where(cls.id == oid, cls.user == user))
+            sess.commit()
+            return result.rowcount > 0
+
+    @classmethod
+    async def delete_all_with_user(cls, user):
+        with Session(cls.engine) as sess:
+            result = sess.execute(delete(cls).where(cls.user == user))
+            sess.commit()
+            return result.rowcount > 0
+
         
 class User(Base, table=True):
     __tablename__ = "users"

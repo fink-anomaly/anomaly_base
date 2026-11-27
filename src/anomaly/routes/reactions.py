@@ -2,7 +2,8 @@ from typing import List
 import datetime
 from database import Database
 from fastapi import APIRouter, HTTPException, status, Depends
-from models.base_types import reaction, update_reaction, ObjectId
+from models.base_types import reaction, ObjectId
+from pydantic import BaseModel, ConfigDict
 from auth.authenticate import authenticate
 import aiohttp
 import os
@@ -15,6 +16,11 @@ reactions_router = APIRouter(
 reactions = Database(reaction)
 
 MODEL_SERVICE_IP = os.getenv('MODEL_SERVICE_IP')
+
+
+class ReactionPatch(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    tag: str
 
 @reactions_router.get("/", response_model=List[reaction])
 async def retrieve_all_reactions() -> List[reaction]:
@@ -67,7 +73,7 @@ async def create_reaction(new_reaction: reaction, user: str = Depends(authentica
 
 @reactions_router.delete("/{num}")
 async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> dict:
-    event = await reactions.delete(num)
+    event = await reactions.delete_owned(num, user)
     if event:
         return {
             "message": "Reaction deleted successfully"
@@ -83,7 +89,9 @@ async def delete_reaction_from_user(name: str, user: str = Depends(authenticate)
     """
     
     """
-    event = await reactions.delete_all_with_user(name)
+    if name != user:
+        raise HTTPException(status_code=404, detail="Reactions not found")
+    event = await reactions.delete_all_with_user(user)
     if event:
         return {
             "message": "Reactions deleted successfully"
@@ -95,8 +103,11 @@ async def delete_reaction_from_user(name: str, user: str = Depends(authenticate)
 
 
 @reactions_router.put("/{num}", response_model=reaction)
-async def update_reaction(num: ObjectId, new_data: update_reaction, user: str = Depends(authenticate)) -> reaction:
-    event = await reactions.update(num, new_data)
+async def update_reaction(num: ObjectId, new_data: ReactionPatch, user: str = Depends(authenticate)) -> reaction:
+    event = await reactions.update_owned(num, user, {
+        'tag': new_data.tag,
+        'changed_at': str(datetime.datetime.now()),
+    })
     if event:
         return event
     raise HTTPException(

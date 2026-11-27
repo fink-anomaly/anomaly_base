@@ -55,7 +55,7 @@ async def get_image(image_id: str, image_number: int):
 
 @image_router.delete("/{num}")
 async def delete_reaction(num: ObjectId, user: str = Depends(authenticate)) -> dict:
-    event = await images.delete(num)
+    event = await images.delete_owned(num, user)
     if event:
         return {
             "message": "Reaction (image) deleted successfully"

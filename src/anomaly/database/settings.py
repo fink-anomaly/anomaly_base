@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = None
     SECRET_KEY: Optional[str] = None
     TG_TOKEN: Optional[str] = None
+    TELEGRAM_WEBHOOK_SECRET: Optional[str] = None
     DEBUG: Optional[str] = None
 
     def is_mongo(self):

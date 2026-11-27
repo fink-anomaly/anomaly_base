@@ -43,9 +43,9 @@ def generate_photometry(data: dict):
         "flux": "{}".format(data['magpsf']),
         "flux_error": "{}".format(data['sigmapsf']),
         "limiting_flux": "{}".format(data['diffmaglim']),
-        "flux_units": "{}".format(inst_units),
-        "filter_value": "{}".format(filters_dict[data['fid']]),
-        "instrument_value": "{}".format(instrument),
+        "flux_unitid": "{}".format(inst_units),
+        "filterid": "{}".format(filters_dict[data['fid']]),
+        "instrumentid": "{}".format(instrument),
         "exptime": "30",
         "observer": "Robot",
         "comments": "Data provided by ZTF, classified by Fink"
@@ -68,9 +68,9 @@ def generate_non_detection(data):
     dd = {
         "obsdate": "{}".format(Time(data['jd'], format='jd').fits.replace("T", " ")),
         "limiting_flux": "{}".format(data['diffmaglim']),
-        "flux_units": "{}".format(inst_units),
-        "filter_value": "{}".format(filters_dict[data['fid']]),
-        "instrument_value": "{}".format(instrument),
+        "flux_unitid": "{}".format(inst_units),
+        "filterid": "{}".format(filters_dict[data['fid']]),
+        "instrumentid": "{}".format(instrument),
         "exptime": "30",
         "observer": "Robot",
         "comments": "Data provided by ZTF, classified by Fink"
@@ -112,11 +112,11 @@ def extract_discovery_photometry(data: dict) -> (dict, dict):
 
     # Extract the last non-detection
     date_init = first_photometry['obsdate']
-    filt_init = first_photometry['filter_value']
+    filt_init = first_photometry['filterid']
     tmp_upp = sorted(tmp_upp, key=lambda i: i['obsdate'])
 
     # Note we extract the last non-detection for the same filter!
-    tmp_upp = [i for i in tmp_upp if (i['obsdate'] <= date_init) & (i['filter_value'] == filt_init)]
+    tmp_upp = [i for i in tmp_upp if (i['obsdate'] <= date_init) & (i['filterid'] == filt_init)]
 
     if len(tmp_upp) == 0:
         last_non_detection = {
@@ -143,43 +143,33 @@ def extract_discovery_photometry_api(data: pd.DataFrame) -> (dict, dict):
     last_non_detection: dict
         Information about the last non-detection
     """
-    mask_valid = (data['d:tag'].values == 'valid') | (data['d:tag'].values == 'badquality')
+    required = {'d:tag', 'i:jd', 'i:fid', 'i:magpsf', 'i:sigmapsf', 'i:diffmaglim'}
+    if data.empty or not required.issubset(data.columns):
+        raise ValueError("Fink returned no usable light curve.")
+    detections = data[data['d:tag'] == 'valid'].copy()
+    if 'i:isdiffpos' in detections:
+        detections = detections[detections['i:isdiffpos'].astype(str).str.lower().isin(['t', '1', 'true'])]
+    if detections.empty:
+        raise ValueError("No valid positive detection is available for this object.")
+    numeric = ['i:jd', 'i:fid', 'i:magpsf', 'i:sigmapsf', 'i:diffmaglim']
+    detections[numeric] = detections[numeric].apply(pd.to_numeric, errors='coerce')
+    if (not np.isfinite(detections[numeric].to_numpy()).all()
+            or not detections['i:fid'].isin(filters_dict).all()
+            or (detections['i:sigmapsf'] < 0).any()):
+        raise ValueError("Fink detection photometry is incomplete or invalid.")
+    first = detections.sort_values('i:jd').iloc[0]
+    first_photometry = generate_photometry({key[2:]: value for key, value in first.items() if key.startswith('i:')})
 
-    # first valid
-    first = data[mask_valid].tail(1)
-
-    mask_time = data[~mask_valid]['i:jd'] < first['i:jd'].values[0]
-
-    # last non-detection
-    last = data[~mask_valid][mask_time].head(1)
-
-    first_photometry = {
-        "obsdate": "{}".format(Time(first['i:jd'].values[0], format='jd').fits.replace("T", " ")),
-        "flux": "{}".format(first['i:magpsf'].values[0]),
-        "flux_error": "{}".format(first['i:sigmapsf'].values[0]),
-        "limiting_flux": "{}".format(first['i:diffmaglim'].values[0]),
-        "flux_units": "{}".format(inst_units),
-        "filter_value": "{}".format(filters_dict[first['i:fid'].values[0]]),
-        "instrument_value": "{}".format(instrument),
-        "exptime": "30",
-        "observer": "Robot",
-        "comments": "Data provided by ZTF, classified by Fink"
-    }
-
-    if not last.empty:
-        last_non_detection = {
-            "obsdate": "{}".format(Time(last['i:jd'].values[0], format='jd').fits.replace("T", " ")),
-            "limiting_flux": "{}".format(last['i:diffmaglim'].values[0]),
-            "flux_units": "{}".format(inst_units),
-            "filter_value": "{}".format(filters_dict[last['i:fid'].values[0]]),
-            "instrument_value": "{}".format(instrument),
-            "exptime": "30",
-            "observer": "Robot",
-            "comments": "Data provided by ZTF, classified by Fink"
-        }
-    else:
-        last_non_detection = {}
-
+    limits = data[data['d:tag'] == 'upperlim'].copy()
+    limit_columns = ['i:jd', 'i:fid', 'i:diffmaglim']
+    limits[limit_columns] = limits[limit_columns].apply(pd.to_numeric, errors='coerce')
+    limits = limits[np.isfinite(limits[limit_columns]).all(axis=1)]
+    limits = limits[(limits['i:jd'] < first['i:jd']) & (limits['i:fid'] == first['i:fid'])]
+    if limits.empty:
+        # Do not invent a non-detection or treat bad-quality detections as limits.
+        raise ValueError("No preceding upper limit in the discovery filter is available. A TNS report needs a non-detection or manually verified archival information.")
+    last = limits.sort_values('i:jd').iloc[-1]
+    last_non_detection = generate_non_detection({key[2:]: value for key, value in last.items() if key.startswith('i:')})
     return first_photometry, last_non_detection
 
 def build_report(
@@ -226,15 +216,15 @@ def build_report(
             "error": radec['dec_err'] * 3600,
             "units": "arcsec"
         },
-        "reporting_group_id": reporting_group_id,
-        "discovery_data_source_id": discovery_data_source_id,
+        "reporting_groupid": reporting_group_id,
+        "data_source_groupid": discovery_data_source_id,
         "reporter": reporter_custom,
         "discovery_datetime": photometry['obsdate'],
         "at_type": at_type_,
         "internal_name": data['objectId'],
         "remarks": remarks_custom.format(data['objectId']),
         "non_detection": non_detection,
-        "photometry": {"photometry_group": {'0': photometry}}
+        "photometry": {'0': photometry}
     }
 
     return report
@@ -271,37 +261,35 @@ def build_report_api(
     if at_type_ is None:
         at_type_ = at_type
 
-    mask = ~np.isnan(data['i:ra'].values) & ~np.isnan(data['i:dec'].values)
-    radec = {
-        'ra': np.mean(data['i:ra'].values[mask]),
-        'ra_err': np.std(data['i:ra'].values[mask]),
-        'dec': np.mean(data['i:dec'].values[mask]),
-        'dec_err': np.std(data['i:dec'].values[mask])
-    }
-
-    report = {
-        "ra": {
-            "value": radec['ra'],
-            "error": radec['ra_err'] * 3600,
-            "units": "arcsec"
-        },
-        "dec": {
-            "value": radec['dec'],
-            "error": radec['dec_err'] * 3600,
-            "units": "arcsec"
-        },
-        "reporting_group_id": reporting_group_id,
-        "discovery_data_source_id": discovery_data_source_id,
+    if not {'i:ra', 'i:dec', 'i:objectId', 'd:tag'}.issubset(data.columns):
+        raise ValueError("Fink returned no object coordinates or identity.")
+    positions = data.loc[data['d:tag'] == 'valid', ['i:ra', 'i:dec']].apply(pd.to_numeric, errors='coerce')
+    positions = positions[np.isfinite(positions).all(axis=1)]
+    if (positions.empty or not positions['i:ra'].between(0, 360, inclusive='left').all()
+            or not positions['i:dec'].between(-90, 90).all()):
+        raise ValueError("Fink returned no valid celestial coordinates.")
+    # Average RA on a circle, so 359.999 and 0.001 degrees average to 0.
+    radians = np.deg2rad(positions['i:ra'].to_numpy())
+    ra = float(np.rad2deg(np.arctan2(np.sin(radians).mean(), np.cos(radians).mean())) % 360)
+    if ra >= 360:  # tiny negative angles can round to 360 during modulo
+        ra = 0.0
+    dec = float(positions['i:dec'].mean())
+    ra_offsets = (positions['i:ra'].to_numpy() - ra + 180) % 360 - 180
+    object_id = str(data['i:objectId'].iloc[0])
+    return {
+        "ra": {"value": ra, "error": float(np.std(ra_offsets) * np.cos(np.deg2rad(dec)) * 3600), "units": "arcsec"},
+        "dec": {"value": dec, "error": float(np.std(positions['i:dec']) * 3600), "units": "arcsec"},
+        "reporting_groupid": reporting_group_id,
+        "data_source_groupid": discovery_data_source_id,
         "reporter": reporter_custom,
         "discovery_datetime": photometry['obsdate'],
-        "at_type": at_type,
-        "internal_name": data['i:objectId'].values[0],
-        "remarks": remarks_custom.format(data['i:objectId'].values[0]),
+        "at_type": str(at_type_),
+        "internal_name": object_id,
+        "internal_ids": {"internal_name": object_id},
+        "remarks": remarks_custom.replace('{}', object_id),
         "non_detection": non_detection,
-        "photometry": {"photometry_group": {'0': photometry}}
+        "photometry": {'0': photometry},
     }
-
-    return report
 
 def save_logs_and_return_json_report(name: str, folder: str, ids: list, report: dict):
     """ Save logs on disk (JSON), and return the path to the JSON file
@@ -359,7 +347,8 @@ def send_json_report(api_key, url, json_file_path, tns_marker) -> int:
     json_url = url + '/set/bulk-report'
 
     # read json data from file
-    json_read = format_to_json(open(json_file_path).read())
+    with open(json_file_path) as report_file:
+        json_read = format_to_json(report_file.read())
 
     # construct list of (key,value) pairs
     json_data = [
@@ -371,6 +360,6 @@ def send_json_report(api_key, url, json_file_path, tns_marker) -> int:
     headers = {'User-Agent': tns_marker}
 
     # send json report using request module
-    response = requests.post(json_url, data=json_data, headers=headers)
+    response = requests.post(json_url, files=json_data, headers=headers, timeout=(5, 30), allow_redirects=False)
 
     return response

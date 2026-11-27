@@ -1,14 +1,14 @@
 import os
+import asyncio
 import sys
 import requests
 import telebot
 import uvicorn
 import aiohttp
 import datetime
-import markdown
 import re
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -39,6 +39,9 @@ from auth.hash_password import HashPassword
 from auth.jwt_handler import create_access_token
 from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from_token
 from auth.authenticate import authenticate_cookie, oauth2_scheme_cookie
+from auth.webhook import validate_webhook_secret, verify_telegram_webhook
+from rendering import render_description
+from telegram_status import CHECKING, CONFIGURATION_ERROR, monitor_webhook
 
 SERVICE_VERSION = 0.11
 
@@ -53,15 +56,30 @@ logger.add(sys.stdout, enqueue=True)
 @asynccontextmanager
 async def init_db(app: FastAPI):
     await settings.initialize_database()
+    app.state.telegram_warning = None
+    monitor = None
+    if config.get('SERVER', 'init_bot', fallback='false').lower() == 'true':
+        domain = config.get('SERVER', 'domen', fallback='').strip()
+        try:
+            secret = validate_webhook_secret(settings.TELEGRAM_WEBHOOK_SECRET)
+        except ValueError:
+            secret = None
+        if domain and secret:
+            app.state.telegram_warning = CHECKING
+            monitor = asyncio.create_task(monitor_webhook(
+                app.state, config['NOTIF']['master_pass'], f'https://{domain}/telegram-webhook', secret,
+            ))
+        else:
+            app.state.telegram_warning = CONFIGURATION_ERROR
+            logger.warning(CONFIGURATION_ERROR)
 
-    if config['SERVER']['init_bot'] == 'true':
-        url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
-        webhook_url = f"https://{config['SERVER']['domen']}/telegram-webhook"
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data={"url": webhook_url}) as response:
-                res = await response.json()
-                print(res)
-    yield
+    try:
+        yield
+    finally:
+        if monitor is not None:
+            monitor.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitor
 
 
 bot = telebot.TeleBot(config['NOTIF']['master_pass'])
@@ -87,6 +105,7 @@ class CallbackQuery(BaseModel):
 
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
+    verify_telegram_webhook(request, settings.TELEGRAM_WEBHOOK_SECRET)
     update = await request.json()
     if "callback_query" in update:
         data = {
@@ -379,19 +398,7 @@ async def index(request: Request):
             buf = attr_carrier()
             buf.cutout = f"static/{obj.id}_cutout.png"
             buf.curve = f"static/{obj.id}_curve.png"
-            extensions = ['markdown_link_attr_modifier', ]
-            extension_configs = {
-                'markdown_link_attr_modifier': {
-                    'new_tab': 'on',
-                    'no_referrer': 'external_only',
-                    'auto_title': 'on',
-                },
-            }
-            buf.description = markdown.markdown(
-                obj.description,
-                extensions=extensions,
-                extension_configs=extension_configs
-            )
+            buf.description = render_description(obj.description)
             buf.ztf_id = obj.ztf_id
             buf.id = obj.id
             if hasattr(obj, 'candid_id'):

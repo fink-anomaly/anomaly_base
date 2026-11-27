@@ -1,100 +1,48 @@
-#!/usr/bin/env python
-# Copyright 2022-2023 AstroLab Software
-# Author: Julien Peloton
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-import requests
+"""Build and submit a single ZTF discovery report using the Fink REST API."""
+
+import re
+
 import pandas as pd
-import io
-import configparser
+import requests
 
-from .report import extract_discovery_photometry_api
-from .report import build_report_api
-from .report import save_logs_and_return_json_report
-from .report import send_json_report
-config = configparser.ConfigParser()
-config.read("secret_data.ini")
+from .client import TIMEOUT, TNSSettings, TNSUpstreamError, submit_report
+from .report import build_report_api, extract_discovery_photometry_api
 
-class ArgCarrier:
-    pass
 
-def tns_transfer(
-        objectId,
-        remarks,
-        reporter,
-        attype,
-        outpath
-    ):
-    """ Submit discovery to TNS
+def tns_transfer(objectId, remarks, reporter, attype, outpath=None, *, settings=None):
+    """Return a pending receipt; use report_reply to learn the final result.
+
+    ``outpath`` is accepted for compatibility. Web requests keep reports in
+    memory instead of writing object-named files shared by all users.
     """
-    args = ArgCarrier()
-    args.objectId = objectId
-    args.remarks = remarks
-    args.reporter = reporter
-    args.attype = attype
-    args.outpath = outpath
-
-    if args.objectId is None:
-        raise NotImplementedError("You need to provide a ZTF objectId")
-    if args.remarks is None:
-        raise NotImplementedError("You need to provide the option remarks")
-    if args.reporter is None:
-        raise NotImplementedError("You need to provide a reporter")
-    tns_marker = ''
-    key = config['TNS']['key']
-    url_tns_api = "https://sandbox.wis-tns.org/api"
-    objects = [args.objectId]
-    ids = []
-    report = {"at_report": {}}
-    for index, obj in enumerate(objects):
-        r = requests.post(
-            'https://api.fink-portal.org/api/v1/objects',
-            json={
-            'objectId': obj,
-            'withupperlim': 'True'
-            }
+    if not isinstance(objectId, str) or not re.fullmatch(r"ZTF\d{2}[a-z]{7}", objectId):
+        raise ValueError("Provide a valid ZTF object ID, for example ZTF17aabvfza.")
+    if not isinstance(reporter, str) or not reporter.strip() or len(reporter) > 1000:
+        raise ValueError("Provide reporter names (at most 1000 characters).")
+    if not isinstance(remarks, str) or not remarks.strip() or len(remarks) > 5000:
+        raise ValueError("Provide remarks (at most 5000 characters).")
+    if not str(attype).isdecimal() or not 1 <= int(attype) <= 5:
+        raise ValueError("AT type must be a TNS type ID from 1 to 5.")
+    settings = settings or TNSSettings.load()
+    try:
+        response = requests.post(
+            "https://api.fink-portal.org/api/v1/objects",
+            json={"objectId": objectId, "withupperlim": "True"},
+            timeout=TIMEOUT,
+            allow_redirects=False,
         )
-
-        # Format output in a DataFrame
-        pdf = pd.read_json(io.BytesIO(r.content))
-
-        photometry, non_detection = extract_discovery_photometry_api(pdf)
-        report['at_report']["{}".format(index)] = build_report_api(
-            pdf,
-            photometry,
-            non_detection,
-            remarks_custom=args.remarks,
-            at_type_=args.attype,
-            reporter_custom=args.reporter
-        )
-        ids.append(pdf['i:objectId'].values[0])
-
-    json_report = save_logs_and_return_json_report(
-        name=args.objectId,
-        folder=args.outpath,
-        ids=ids,
-        report=report
+        response.raise_for_status()
+        records = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise TNSUpstreamError("Unable to retrieve the Fink light curve; nothing was submitted to TNS.") from exc
+    if not isinstance(records, list):
+        raise TNSUpstreamError("Fink returned an invalid light curve; nothing was submitted to TNS.")
+    data = pd.DataFrame.from_records(records)
+    if data.empty or 'i:objectId' not in data or not data['i:objectId'].eq(objectId).all():
+        raise ValueError("Fink returned no matching light curve for this object.")
+    photometry, non_detection = extract_discovery_photometry_api(data)
+    report = build_report_api(
+        data, photometry, non_detection,
+        reporter_custom=reporter.strip(), remarks_custom=remarks.strip(), at_type_=str(attype),
     )
-    print(report)
-
-    r = send_json_report(key, url_tns_api, json_report, tns_marker)
-    return r.json()
-
-if __name__ == "__main__":
-    tns_transfer(
-        'ZTF17aabvfza',
-        'Data provided by ZTF and processed by Fink',
-        'test',
-        'test_type',
-        './TNS_last.json'
-    )
+    return submit_report(settings, {"at_report": {"0": report}})

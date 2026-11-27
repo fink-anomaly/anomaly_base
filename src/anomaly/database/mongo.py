@@ -4,6 +4,7 @@ from beanie import init_beanie, PydanticObjectId
 from models.mongo import reaction, User, ImageDocument
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
+from pymongo import ReturnDocument
 
 async def initialize_database(Settings):
    client = AsyncIOMotorClient(Settings.DATABASE_URL)
@@ -49,13 +50,21 @@ class Database:
             return False
         await doc.delete()
         return True
+
+    async def update_owned(self, id: PydanticObjectId, user: str, changes: dict):
+        doc = await self.model.get_motor_collection().find_one_and_update(
+            {"_id": id, "user": user}, {"$set": changes},
+            return_document=ReturnDocument.AFTER,
+        )
+        return self.model.model_validate(doc) if doc else False
+
+    async def delete_owned(self, id: PydanticObjectId, user: str) -> bool:
+        result = await self.model.get_motor_collection().delete_one({"_id": id, "user": user})
+        return result.deleted_count > 0
     
     async def delete_all_with_user(self, user: str) -> bool:
-        search_result = self.model.find({"user": user})
-        if not (await search_result.count() > 0):
-            return False
-        await search_result.delete()
-        return True
+        result = await self.model.get_motor_collection().delete_many({"user": user})
+        return result.deleted_count > 0
 
     async def find_with_user(self, name: str) -> List:
         search_result = self.model.find_many({"user": name}) if name != 'admin' else self.model.find_all()

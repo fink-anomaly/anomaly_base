@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Form, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from auth.jwt_handler import create_access_token
 from TNS.submit import tns_transfer
+from TNS.client import TNSSettings, TNSConfigurationError, TNSUpstreamError, report_reply
 from database import Database
 from auth.hash_password import HashPassword
 from auth.authenticate import authenticate
@@ -42,22 +43,55 @@ async def sign_user_up(user: User) -> dict:
         "message": "User created successfully"
     }
 
-@user_router.post("/submitTNS")
-async def submit_form(
+def tns_call(function, *args, **kwargs):
+    try:
+        return function(*args, **kwargs)
+    except TNSConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except TNSUpstreamError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def authorized_tns_settings(user: str = Depends(authenticate)):
+    settings = tns_call(TNSSettings.load)
+    if user not in settings.allowed_users:
+        raise HTTPException(status_code=403, detail="This account is not authorized to submit or inspect TNS reports.")
+    return settings
+
+
+@user_router.post("/submitTNS", status_code=202)
+def submit_form(
     object_id: str = Form(...),
     remarks: str = Form(...),
     reporter: str = Form(...),
     at_type: str = Form(...),
-    user: str = Depends(authenticate)
+    environment: str = Form(...),
+    settings: TNSSettings = Depends(authorized_tns_settings)
 ) -> dict:
-    result = tns_transfer(
+    if environment != settings.environment:
+        raise HTTPException(status_code=409, detail="The TNS environment changed. Reload the page before submitting.")
+    # A regular def runs blocking requests in FastAPI's thread pool.
+    return tns_call(tns_transfer,
         objectId=object_id,
         remarks=remarks,
         reporter=reporter,
         attype=at_type,
-        outpath='Last_TNS_result'
+        settings=settings,
     )
-    return result
+
+
+@user_router.get("/tns/reports/{report_id}")
+def get_tns_report(report_id: int, settings: TNSSettings = Depends(authorized_tns_settings)) -> dict:
+    if report_id <= 0:
+        raise HTTPException(status_code=422, detail="Report ID must be positive.")
+    return tns_call(report_reply, settings, report_id)
+
+
+@user_router.get("/tns/config")
+def get_tns_config(settings: TNSSettings = Depends(authorized_tns_settings)) -> dict:
+    return {"environment": settings.environment}
 
 @user_router.get("/{postfix}")
 async def get_tgid_by_postfix(postfix):

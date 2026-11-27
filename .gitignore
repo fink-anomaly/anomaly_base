@@ -1,1 +1,5 @@
 .env
+secret_data.ini
+__pycache__/
+.pytest_cache/
+.coverage*
