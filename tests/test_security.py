@@ -189,11 +189,22 @@ def test_untrusted_identifiers_are_js_values_not_code(client, headers):
     insert(client, ImageDocument, user='reporter', ztf_id=payload, candid_id=payload, description='UTC: ' + now)
     client.cookies.set('access_token', headers['Authorization'])
     soup = BeautifulSoup(client.get('/').text, 'html.parser')
-    handler = soup.select_one('#tiles button[onclick^="add_anomaly"]')['onclick']
-    script = 'let result; function add_anomaly(...args) {result=args;}\n' + handler + '\nif (globalThis.injected) process.exit(1); console.log(JSON.stringify(result));'
-    result = subprocess.run(['node', '-e', script], capture_output=True, text=True, timeout=10)
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)[:2] == [payload, payload]
+    card = soup.select_one('#tiles .tile')
+    assert card['data-ztf-id'] == card['data-candid-id'] == payload
+    assert not card.select('[onclick]')
+    assert payload not in ''.join(script.get_text() for script in soup.select('script:not([src])'))
+
+
+def test_notifications_are_the_signed_in_default(client, headers):
+    signed_out = BeautifulSoup(client.get('/').text, 'html.parser')
+    assert signed_out.select_one('#main')['data-default-panel'] == 'home'
+    assert not signed_out.select_one('#notifications')
+
+    client.cookies.set('access_token', headers['Authorization'])
+    signed_in = BeautifulSoup(client.get('/').text, 'html.parser')
+    assert signed_in.select_one('#main')['data-default-panel'] == 'notifications'
+    assert signed_in.select_one('#nav a[href="#home"]')
+    assert signed_in.select_one('#notification-status').get_text(strip=True) == 'No pending notifications.'
 
 
 def test_username_is_not_evaluated_in_template_scripts(client):

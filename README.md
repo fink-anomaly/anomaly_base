@@ -93,8 +93,8 @@ and invalid input/light curves return 422. No JSON/CSV report files accumulate
 on the server.
 
 **Deployment:** this compose file mounts a persistent directory over
-`/app/static`. Copy the new `static/assets/js/tns.js` into that mounted directory
-as part of deployment; rebuilding the image alone does not update files hidden
+`/app/static`. Copy `static/assets/js/tns.js` and the updated `static/assets/js/main.js`
+into that mounted directory as part of deployment; rebuilding the image alone does not update files hidden
 by the mount. Existing application settings and database setup are still
 required.
 
@@ -160,9 +160,14 @@ Generate a random value locally, for example with
 
 With `[SERVER] init_bot = true` and `domen` set to the public hostname in
 `secret_data.ini`, the API registers its webhook in the background using this
-value as `secret_token`. Each Telegram request has a 10-second timeout. If
+value as `secret_token`. Each asynchronous Bot API request has a 10-second total timeout. If
 registration fails, the API retries after 60 seconds. After registration, it
 checks the registered URL with `getWebhookInfo` every 60 seconds.
+
+Optionally set `bot_proxy = socks5://127.0.0.1:3128` in the `[SERVER]` section of
+`secret_data.ini`. Use a SOCKS proxy address reachable from the API container.
+The service uses it for webhook registration, health checks, callback replies
+and bot messages. When `bot_proxy` is omitted or blank, it connects directly.
 
 The cabinet shows a banner while checking Telegram, after a failed check or
 when registration needs administrator attention. Open or reload the page to see

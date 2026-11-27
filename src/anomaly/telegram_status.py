@@ -1,6 +1,8 @@
 import asyncio
+from urllib.parse import urlsplit
 
 import aiohttp
+from aiohttp_socks import ProxyConnectionError, ProxyConnector, ProxyError, ProxyTimeoutError
 from loguru import logger
 
 
@@ -12,28 +14,51 @@ CHECK_ERROR = 'The Telegram bot connection could not be verified. We will check 
 WRONG_WEBHOOK = 'The Telegram bot webhook points to a different address. Contact the service administrator.'
 
 
-async def bot_api_call(session, api_url, method, data=None):
+def telegram_proxy_url(value):
+    value = value.strip()
+    if not value:
+        return None
+    url = urlsplit(value)
+    if (
+        url.scheme not in ('socks4', 'socks4a', 'socks5', 'socks5h')
+        or not url.hostname or not url.port or url.path not in ('', '/') or url.query or url.fragment
+    ):
+        raise ValueError('Invalid Telegram SOCKS proxy URL')
+    return url._replace(scheme='socks4a' if url.scheme.startswith('socks4') else 'socks5h', path='').geturl()
+
+
+def telegram_session(proxy_url):
+    timeout = aiohttp.ClientTimeout(total=10)
+    if proxy_url is None:
+        return aiohttp.ClientSession(timeout=timeout)
+    url = urlsplit(proxy_url)
+    scheme = 'socks4' if url.scheme == 'socks4a' else 'socks5'
+    connector = ProxyConnector.from_url(url._replace(scheme=scheme).geturl(), rdns=True)
+    return aiohttp.ClientSession(timeout=timeout, connector=connector)
+
+
+async def bot_api_call(session, api_url, method, **payload):
     try:
         async with session.post(
-            f'{api_url}/{method}', data=data, allow_redirects=False,
+            f'{api_url}/{method}', allow_redirects=False, **payload,
         ) as response:
             if response.status == 200:
                 result = await response.json()
                 if isinstance(result, dict) and result.get('ok') is True:
                     return result
-    except (aiohttp.ClientError, ValueError, asyncio.TimeoutError):
+    except (aiohttp.ClientError, ValueError, asyncio.TimeoutError, ProxyConnectionError, ProxyError, ProxyTimeoutError):
         # A transport exception can include the bot token in its request URL.
         pass
     return None
 
 
-async def monitor_webhook(state, bot_token, webhook_url, secret):
+async def monitor_webhook(state, bot_token, webhook_url, secret, proxy_url=None):
     api_url = f'https://api.telegram.org/bot{bot_token}'
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+    async with telegram_session(proxy_url) as session:
         registered = False
         while True:
             if not registered:
-                registration = await bot_api_call(session, api_url, 'setWebhook', {
+                registration = await bot_api_call(session, api_url, 'setWebhook', data={
                     'url': webhook_url, 'secret_token': secret,
                 })
                 registered = registration is not None and registration.get('result') is True

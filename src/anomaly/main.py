@@ -4,7 +4,6 @@ import sys
 import requests
 import telebot
 import uvicorn
-import aiohttp
 import datetime
 import re
 
@@ -41,7 +40,9 @@ from auth.jwt_handler import get_current_user_from_cookie, get_current_user_from
 from auth.authenticate import authenticate_cookie, oauth2_scheme_cookie
 from auth.webhook import validate_webhook_secret, verify_telegram_webhook
 from rendering import render_description
-from telegram_status import CHECKING, CONFIGURATION_ERROR, monitor_webhook
+from telegram_status import (
+    CHECKING, CONFIGURATION_ERROR, bot_api_call, monitor_webhook, telegram_proxy_url, telegram_session,
+)
 
 SERVICE_VERSION = 0.11
 
@@ -57,8 +58,22 @@ logger.add(sys.stdout, enqueue=True)
 async def init_db(app: FastAPI):
     await settings.initialize_database()
     app.state.telegram_warning = None
+    app.state.telegram_proxy = None
+    app.state.telegram_proxy_invalid = False
+    telebot.apihelper.proxy = None
+    try:
+        proxy = telegram_proxy_url(config.get('SERVER', 'bot_proxy', raw=True, fallback=''))
+    except ValueError:
+        app.state.telegram_proxy_invalid = True
+        app.state.telegram_warning = CONFIGURATION_ERROR
+        logger.warning(CONFIGURATION_ERROR)
+    else:
+        app.state.telegram_proxy = proxy
+        if proxy:
+            telebot.apihelper.proxy = {'https': proxy}
+
     monitor = None
-    if config.get('SERVER', 'init_bot', fallback='false').lower() == 'true':
+    if not app.state.telegram_proxy_invalid and config.get('SERVER', 'init_bot', fallback='false').lower() == 'true':
         domain = config.get('SERVER', 'domen', fallback='').strip()
         try:
             secret = validate_webhook_secret(settings.TELEGRAM_WEBHOOK_SECRET)
@@ -68,6 +83,7 @@ async def init_db(app: FastAPI):
             app.state.telegram_warning = CHECKING
             monitor = asyncio.create_task(monitor_webhook(
                 app.state, config['NOTIF']['master_pass'], f'https://{domain}/telegram-webhook', secret,
+                proxy_url=app.state.telegram_proxy,
             ))
         else:
             app.state.telegram_warning = CONFIGURATION_ERROR
@@ -106,6 +122,8 @@ class CallbackQuery(BaseModel):
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
     verify_telegram_webhook(request, settings.TELEGRAM_WEBHOOK_SECRET)
+    if request.app.state.telegram_proxy_invalid:
+        raise HTTPException(status_code=503, detail="Telegram connection is unavailable")
     update = await request.json()
     if "callback_query" in update:
         data = {
@@ -156,19 +174,15 @@ async def handle_callback_query(callback_query: CallbackQuery):
         f"Tag '{new_reaction.tag}' has been set for object {ztf_id} (candid: {candid_id})."
     )
 
-    if event:
-        event_old = event.tag
-        if event.tag == new_reaction.tag:
-            answer_text = (
-                f"Status '{event.tag}' is already set for {ztf_id}. No changes are required."
-            )
-        else:
-            await event.set({'tag': new_reaction.tag, 'changed_at': new_reaction.changed_at})
-    else:
+    is_changed = not event or event.tag != new_reaction.tag
+    if not event:
         await reactions.save(new_reaction)
+    elif is_changed:
+        await event.set({'tag': new_reaction.tag, 'changed_at': new_reaction.changed_at})
+    else:
+        answer_text = f"Status '{event.tag}' is already set for {ztf_id}. No changes are required."
 
-    url_answer = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/answerCallbackQuery"
-    url_button_change = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/editMessageReplyMarkup"
+    api_url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}"
 
     inline_keyboard = {
         "inline_keyboard": [
@@ -179,26 +193,21 @@ async def handle_callback_query(callback_query: CallbackQuery):
         ]
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                url_answer,
-                data={"callback_query_id": callback_query.id, 'text': answer_text}
-        ) as response:
-            answer = await response.json()
-            logger.info(f"Telegram answerCallbackQuery response: {answer}")
+    async with telegram_session(app.state.telegram_proxy) as session:
+        answer = await bot_api_call(session, api_url, 'answerCallbackQuery', data={
+            'callback_query_id': callback_query.id, 'text': answer_text,
+        })
+        if answer is None:
+            logger.warning('Telegram callback could not be acknowledged.')
 
-    if not event or (event and event_old != new_reaction.tag):
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url_button_change,
-                    json={
-                        "chat_id": callback_query.message['chat']['id'],
-                        "message_id": callback_query.message['message_id'],
-                        "reply_markup": inline_keyboard,
-                    }
-            ) as response:
-                answer = await response.json()
-                logger.info(f"Telegram editMessageReplyMarkup response: {answer}")
+        if is_changed:
+            edit = await bot_api_call(session, api_url, 'editMessageReplyMarkup', json={
+                'chat_id': callback_query.message['chat']['id'],
+                'message_id': callback_query.message['message_id'],
+                'reply_markup': inline_keyboard,
+            })
+            if edit is None:
+                logger.warning('Telegram callback buttons could not be updated.')
 
 
 
@@ -440,31 +449,41 @@ async def index(request: Request):
 
 users = {}
 
+
+def send_bot_message(chat_id, text):
+    try:
+        bot.send_message(chat_id, text, timeout=10)
+    except (requests.RequestException, telebot.apihelper.ApiException):
+        logger.warning('Telegram bot could not send a message.')
+        return False
+    return True
+
+
 @bot.message_handler(commands=['help'])
 def help(message):
     help_message = """The following commands are available:
 /start bot start
 /connect link the login in the database to the telegram account
 """
-    bot.send_message(message.from_user.id, help_message)
+    send_bot_message(message.from_user.id, help_message)
 
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.from_user.id, "Hello! Use /connect to connect the bot to your account in the database")
+    send_bot_message(message.from_user.id, "Hello! Use /connect to connect the bot to your account in the database")
 
 
 @bot.message_handler(commands=['connect'])
 def model(message):
-    bot.send_message(message.from_user.id, "Enter your username in the database")
-    users[message.from_user.id] = {}
-    bot.register_next_step_handler(message, save_login)
+    if send_bot_message(message.from_user.id, "Enter your username in the database"):
+        users[message.from_user.id] = {}
+        bot.register_next_step_handler(message, save_login)
 
 def save_login(message):
     user, tg_id = message.text, message.from_user.id
-    users[tg_id]['name'] = user
-    bot.send_message(message.from_user.id, "Enter the password")
-    bot.register_next_step_handler(message, save_password)
+    if send_bot_message(tg_id, "Enter the password"):
+        users[tg_id]['name'] = user
+        bot.register_next_step_handler(message, save_password)
 
 def save_password(message):
     password, tg_id = message.text, message.from_user.id
@@ -474,9 +493,9 @@ def save_password(message):
         'tg_id': str(tg_id)
     })
     if r.status_code != 200:
-        bot.send_message(message.from_user.id, f'The server returned the error {r.status_code}. Error text: {r.text}')
+        send_bot_message(tg_id, f'The server returned the error {r.status_code}. Error text: {r.text}')
     else:
-        bot.send_message(message.from_user.id, f'Login {users[tg_id]["name"]} has been successfully linked to tg_id {tg_id}')
+        send_bot_message(tg_id, f'Login {users[tg_id]["name"]} has been successfully linked to tg_id {tg_id}')
 
 
 

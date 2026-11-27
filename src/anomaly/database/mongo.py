@@ -88,10 +88,7 @@ class Database:
         return False
 
     async def find_with_candid(self, candid_id: str, user: str) -> Any:
-        search_result = self.model.find_one({'candid_id': candid_id, 'user': user})
-        if await search_result.count():
-            return search_result
-        return False
+        return await self.model.find_one({'candid_id': candid_id, 'user': user})
 
     async def find_with_tgid(self, tg_id: str) -> Any:
         search_result = self.model.find_one({'tg_id': tg_id})

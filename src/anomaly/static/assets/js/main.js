@@ -4,209 +4,90 @@
 	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
 */
 
-(function($) {
+(() => {
+	const main = document.getElementById('main');
+	if (!main) return;
+	const panels = [...main.querySelectorAll(':scope > .panel')];
+	const navLinks = document.querySelectorAll('#nav > a');
 
-	var $window = $(window),
-		$body = $('body'),
-		$wrapper = $('#wrapper'),
-		$main = $('#main'),
-		$panels = $main.children('.panel'),
-		$nav = $('#nav'), $nav_links = $nav.children('a');
-
-	// Breakpoints.
-		breakpoints({
-			xlarge:  [ '1281px',  '1680px' ],
-			large:   [ '981px',   '1280px' ],
-			medium:  [ '737px',   '980px'  ],
-			small:   [ '361px',   '736px'  ],
-			xsmall:  [ null,      '360px'  ]
+	function showPanel() {
+		const requestedId = window.location.hash.slice(1);
+		const selected = panels.find((panel) => panel.id === requestedId)
+			|| document.getElementById(main.dataset.defaultPanel) || panels[0];
+		panels.forEach((panel) => { panel.hidden = panel !== selected; });
+		navLinks.forEach((link) => {
+			const active = link.hash === '#' + selected.id;
+			link.classList.toggle('active', active);
+			if (active) link.setAttribute('aria-current', 'page');
+			else link.removeAttribute('aria-current');
 		});
+		window.scrollTo(0, 0);
+	}
 
-	// Play initial animations on page load.
-		$window.on('load', function() {
-			window.setTimeout(function() {
-				$body.removeClass('is-preload');
-			}, 100);
-		});
+	window.addEventListener('hashchange', showPanel);
+	showPanel();
+	document.body.classList.remove('is-preload');
 
-	// Nav.
-		$nav_links
-			.on('click', function(event) {
+	const tiles = document.getElementById('tiles');
+	if (!tiles) return;
+	const notificationStatus = document.getElementById('notification-status');
+	const notificationPreview = document.getElementById('notification-preview');
 
-				var href = $(this).attr('href');
+	tiles.addEventListener('click', async (event) => {
+		const button = event.target.closest('button');
+		if (!button) return;
 
-				// Not a panel link? Bail.
-					if (href.charAt(0) != '#'
-					||	$panels.filter(href).length == 0)
-						return;
+		const tile = button.closest('.tile');
+		const {id, ztfId, candidId} = tile.dataset;
+		const {tag, action} = button.dataset;
+		if (button.classList.contains('tile-preview')) {
+			const source = button.querySelector('img');
+			const preview = notificationPreview.querySelector('img');
+			preview.src = source.currentSrc || source.src;
+			preview.alt = source.alt;
+			notificationPreview.showModal();
+			return;
+		}
+		if (action === 'tns') {
+			document.getElementById('object_id').value = ztfId;
+			document.getElementById('remarks').value = 'Data provided by ZTF and processed by Fink';
+			window.location.hash = '#TNS';
+			return;
+		}
+		if (!tag && action !== 'remove') return;
 
-				// Prevent default.
-					event.preventDefault();
-					event.stopPropagation();
-
-				// Change panels.
-					if (window.location.hash != href)
-						window.location.hash = href;
-
+		const status = tile.querySelector('.tile-status');
+		const buttons = [...tile.querySelectorAll('.tile-actions button')];
+		buttons.forEach((control) => { control.disabled = true; });
+		let savedTag = tile.dataset.savedTag;
+		status.textContent = tag ? 'Saving label…' : 'Removing notification…';
+		try {
+			if (tag) {
+				if (!await saveReaction(ztfId, candidId || null, tag)) throw new Error();
+				tile.dataset.savedTag = savedTag = tag;
+			}
+			const response = await fetch(`/images/${encodeURIComponent(id)}`, {
+				method: 'DELETE', headers: {'Authorization': token_}
 			});
-
-	// Panels.
-
-		// Initialize.
-			(function() {
-
-				var $panel, $link;
-
-				// Get panel, link.
-					if (window.location.hash) {
-
-				 		$panel = $panels.filter(window.location.hash);
-						$link = $nav_links.filter('[href="' + window.location.hash + '"]');
-
-					}
-
-				// No panel/link? Default to first.
-					if (!$panel
-					||	$panel.length == 0) {
-
-						$panel = $panels.first();
-						$link = $nav_links.first();
-
-					}
-
-				// Deactivate all panels except this one.
-					$panels.not($panel)
-						.addClass('inactive')
-						.hide();
-
-				// Activate link.
-					$link
-						.addClass('active');
-
-				// Reset scroll.
-					$window.scrollTop(0);
-
-			})();
-
-		// Hashchange event.
-			$window.on('hashchange', function(event) {
-
-				var $panel, $link;
-
-				// Get panel, link.
-					if (window.location.hash) {
-
-				 		$panel = $panels.filter(window.location.hash);
-						$link = $nav_links.filter('[href="' + window.location.hash + '"]');
-
-						// No target panel? Bail.
-							if ($panel.length == 0)
-								return;
-
-					}
-
-				// No panel/link? Default to first.
-					else {
-
-						$panel = $panels.first();
-						$link = $nav_links.first();
-
-					}
-
-				// Deactivate all panels.
-					$panels.addClass('inactive');
-
-				// Deactivate all links.
-					$nav_links.removeClass('active');
-
-				// Activate target link.
-					$link.addClass('active');
-
-				// Set max/min height.
-					$main
-						.css('max-height', $main.height() + 'px')
-						.css('min-height', $main.height() + 'px');
-
-				// Delay.
-					setTimeout(function() {
-
-						// Hide all panels.
-							$panels.hide();
-
-						// Show target panel.
-							$panel.show();
-
-						// Set new max/min height.
-							$main
-								.css('max-height', $panel.outerHeight() + 'px')
-								.css('min-height', $panel.outerHeight() + 'px');
-
-						// Reset scroll.
-							$window.scrollTop(0);
-
-						// Delay.
-							window.setTimeout(function() {
-
-								// Activate target panel.
-									$panel.removeClass('inactive');
-
-								// Clear max/min height.
-									$main
-										.css('max-height', '')
-										.css('min-height', '');
-
-								// IE: Refresh.
-									$window.triggerHandler('--refresh');
-
-								// Unlock.
-									locked = false;
-
-							}, (breakpoints.active('small') ? 0 : 500));
-
-					}, 250);
-
-			});
-
-	// IE: Fixes.
-		if (browser.name == 'ie') {
-
-			// Fix min-height/flexbox.
-				$window.on('--refresh', function() {
-
-					$wrapper.css('height', 'auto');
-
-					window.setTimeout(function() {
-
-						var h = $wrapper.height(),
-							wh = $window.height();
-
-						if (h < wh)
-							$wrapper.css('height', '100vh');
-
-					}, 0);
-
-				});
-
-				$window.on('resize load', function() {
-					$window.triggerHandler('--refresh');
-				});
-
-			// Fix intro pic.
-				$('.panel.intro').each(function() {
-
-					var $pic = $(this).children('.pic'),
-						$img = $pic.children('img');
-
-					$pic
-						.css('background-image', 'url(' + $img.attr('src') + ')')
-						.css('background-size', 'cover')
-						.css('background-position', 'center');
-
-					$img
-						.css('visibility', 'hidden');
-
-				});
-
+			if (!response.ok && response.status !== 404) throw new Error();
+		} catch {
+			status.textContent = savedTag ? 'Label saved. Could not remove the notification. Retry removal.'
+				: tag ? 'Could not save the label. Try again.' : 'Could not remove the notification. Try again.';
+			buttons.forEach((control) => { control.disabled = Boolean(savedTag && control.dataset.tag); });
+			if (savedTag) tile.querySelector('[data-action="remove"]').textContent = 'Retry removal';
+			return;
 		}
 
-})(jQuery);
+		const next = tile.nextElementSibling || tile.previousElementSibling;
+		const focused = tile.contains(document.activeElement) || document.activeElement === document.body;
+		tile.remove();
+		const count = tiles.childElementCount;
+		const result = savedTag ? `${ztfId} marked ${savedTag.toLowerCase()}.` : `${ztfId} removed.`;
+		notificationStatus.textContent = `${result} ${count ? count + ' pending' : 'No pending notifications.'}`;
+		if (focused && !document.getElementById('notifications').hidden) {
+			const focusTarget = next?.querySelector('[data-tag]:enabled, [data-action="remove"]:enabled')
+				|| document.querySelector('#notifications h2');
+			focusTarget.focus({preventScroll: true});
+		}
+	});
+})();
