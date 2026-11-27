@@ -75,3 +75,4 @@ virtualenv==20.28.0
 wheel==0.45.1
 yarl==1.18.3
 markdown-link-attr-modifier==0.2.1
+aiohttp-socks==0.12.0

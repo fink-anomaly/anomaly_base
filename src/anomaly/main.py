@@ -7,6 +7,7 @@ import aiohttp
 import datetime
 import markdown
 import re
+from aiohttp_socks import ProxyConnector
 
 from contextlib import asynccontextmanager
 
@@ -55,9 +56,14 @@ async def init_db(app: FastAPI):
     await settings.initialize_database()
 
     if config['SERVER']['init_bot'] == 'true':
+        session_config = {}
+        if config['SERVER']['bot_proxy']:
+            session_config['connector'] = ProxyConnector.from_url(config['SERVER']['bot_proxy'])
+        session_config['timeout'] = aiohttp.ClientTimeout(connect=10,sock_connect=10)
+
         url = f"https://api.telegram.org/bot{config['NOTIF']['master_pass']}/setWebhook"
         webhook_url = f"https://{config['SERVER']['domen']}/telegram-webhook"
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(**session_config) as session:
             async with session.post(url, data={"url": webhook_url}) as response:
                 res = await response.json()
                 print(res)
@@ -160,7 +166,12 @@ async def handle_callback_query(callback_query: CallbackQuery):
         ]
     }
 
-    async with aiohttp.ClientSession() as session:
+    session_config = {}
+    if config['SERVER']['bot_proxy']:
+        session_config['connector'] = ProxyConnector.from_url(config['SERVER']['bot_proxy'])
+    session_config['timeout'] = aiohttp.ClientTimeout(connect=10,sock_connect=10)
+
+    async with aiohttp.ClientSession(**session_config) as session:
         async with session.post(
                 url_answer,
                 data={"callback_query_id": callback_query.id, 'text': answer_text}
@@ -168,8 +179,7 @@ async def handle_callback_query(callback_query: CallbackQuery):
             answer = await response.json()
             logger.info(f"Telegram answerCallbackQuery response: {answer}")
 
-    if not event or (event and event_old != new_reaction.tag):
-        async with aiohttp.ClientSession() as session:
+        if not event or (event and event_old != new_reaction.tag):
             async with session.post(
                     url_button_change,
                     json={
